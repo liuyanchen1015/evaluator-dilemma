@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Evaluator Dilemma</title>
+<meta name="description" content="Does recursive self-improvement really improve? An essay on the evaluator dilemma, with audits of published self-improving AI systems.">
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Source+Code+Pro:wght@400;500&family=Source+Sans+3:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap">
+<style>
+/* Layout: one reading column, a sticky contents rail on the left, a notes margin on the right.
+   Type: a single sans family for text and charts, plus a mono for numbers and codes.
+   Color: ink on white; one blue for interaction and highlights; three data hues for the three kinds of
+   evaluator (green = fixed, magenta = co-evolving, violet = hybrid), used the same way in every figure. */
+:root {
+  --bg: #ffffff;
+  --ink: #14161b;
+  --muted: #5b626e;
+  --faint: #9399a4;
+  --rule: #e6e8ec;
+  --panel: #f4f5f7;
+  --accent: #1d5bd6;
+  --fixed: #0d8a5b;
+  --fixed-soft: #e3f3eb;
+  --co: #c2366b;
+  --co-soft: #fbe7ee;
+  --hybrid: #7650c8;
+  --hybrid-soft: #eee8fa;
+  --r1: #075e3e;
+  --r2: #1f9e6a;
+  --r4: #8ccfae;
+  --sans: "Source Sans 3", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: "Source Code Pro", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --head: var(--sans);
+  --head-w: 700;
+  --head-ls: -0.02em;
+  --fs: 1.125rem;
+  --measure: 44rem;
+  --rail: 13rem;
+  --gap: 3rem;
+  --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1115; --ink: #e9ebef; --muted: #a3aab5; --faint: #6c737f; --rule: #252931; --panel: #171a20;
+    --accent: #7ea9f7; --fixed: #45c48a; --fixed-soft: #10291d; --co: #f07aa2; --co-soft: #34151f;
+    --hybrid: #b49cf2; --hybrid-soft: #251d3a; --r1: #93e3bb; --r2: #45c48a; --r4: #23714f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1115; --ink: #e9ebef; --muted: #a3aab5; --faint: #6c737f; --rule: #252931; --panel: #171a20;
+  --accent: #7ea9f7; --fixed: #45c48a; --fixed-soft: #10291d; --co: #f07aa2; --co-soft: #34151f;
+  --hybrid: #b49cf2; --hybrid-soft: #251d3a; --r1: #93e3bb; --r2: #45c48a; --r4: #23714f; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: var(--fs); line-height: 1.65;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+/* top bar */
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bg); border-bottom: 1px solid var(--rule); }
+.topbar-inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 3.1rem;
+  padding-left: var(--gutter-l); padding-right: var(--gutter-r);
+  max-width: calc(var(--rail) + var(--measure) + var(--gap) + 32px); margin: 0 auto; }
+.brand { font: var(--head-w) 0.95rem/1.2 var(--head); color: var(--ink); text-decoration: none; letter-spacing: -0.005em; }
+.lang { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; padding: 2px; font: 600 0.8rem/1 var(--sans); }
+.lang button { font: inherit; color: var(--muted); background: transparent; border: 0; border-radius: 4px; padding: 0.42rem 0.7rem; cursor: pointer; }
+.lang button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
+/* page grid */
+.page { padding-left: var(--gutter-l); padding-right: var(--gutter-r); padding-block: 0 5rem; }
+.layout { max-width: var(--measure); margin: 0 auto; }
+.toc { display: none; }
+.post { min-width: 0; }
+@media (min-width: 1200px) {
+  .layout { max-width: calc(var(--rail) + var(--measure) + var(--gap));
+    display: grid; grid-template-columns: var(--rail) minmax(0, var(--measure)); column-gap: var(--gap); }
+  .toc { display: block; grid-column: 1; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 4.75rem); align-self: start;
+    max-height: calc(100vh - 7rem); overflow-y: auto; padding-top: 2.6rem; }
+  .toc[hidden] { display: none; }
+  .post { grid-column: 2; }
+  .toc-m { display: none; }
+  .fig-wide { margin-right: -6rem; }
+}
+
+/* contents */
+.toc-title { font: 700 0.72rem/1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); margin: 0 0 0.9rem; }
+.toc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.1rem; font: 400 0.9rem/1.35 var(--sans); }
+.toc-list a { display: flex; gap: 0.55rem; padding: 0.3rem 0.5rem; border-radius: 4px; color: var(--muted); text-decoration: none; }
+.toc-list a:hover { color: var(--ink); background: var(--panel); }
+.toc-list a.active { color: var(--ink); background: var(--panel); font-weight: 600; }
+.toc-list .secnum { margin: 0; min-width: 1.1em; color: var(--faint); font-weight: 400; }
+.toc-m { margin: 1.5rem 0 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 0.6rem 0; }
+.toc-m summary { font: 600 0.9rem/1.4 var(--sans); cursor: pointer; color: var(--muted); }
+.toc-m .toc-list { margin-top: 0.6rem; }
+
+/* hero */
+.hero { padding: 3.25rem 0 1.5rem; }
+.eyebrow { font: 700 0.75rem/1.3 var(--sans); letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent); margin: 0 0 0.9rem; }
+.title { margin: 0 0 1.4rem; text-wrap: balance; }
+.t-name { display: block; font: var(--head-w) clamp(2.1rem, 5.2vw, 2.9rem)/1.1 var(--head); letter-spacing: var(--head-ls); color: var(--ink); }
+.t-deck { display: block; font: 400 clamp(1.2rem, 2.8vw, 1.5rem)/1.35 var(--sans); color: var(--muted); margin-top: 0.45rem; letter-spacing: -0.005em; }
+/* A (default): labelled facts between two hairlines */
+.meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 0.7rem 1.4rem; margin: 0 0 1.4rem; padding: 0.85rem 0;
+  border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); font: 400 0.92rem/1.4 var(--sans); }
+.meta dt { font: 600 0.68rem/1.2 var(--sans); letter-spacing: 0.09em; text-transform: uppercase; color: var(--faint); margin: 0 0 0.25rem; }
+.meta dd { margin: 0; color: var(--ink); }
+.meta a { text-decoration: none; }
+.btn { display: inline-flex; align-items: center; gap: 0.4rem; font: 600 0.88rem/1 var(--sans); padding: 0.62rem 0.95rem;
+  border: 1.5px solid var(--ink); border-radius: 6px; color: var(--ink); text-decoration: none; }
+.btn:hover { background: var(--ink); color: var(--bg); }
+.btn-quiet { font: 600 0.82rem/1 var(--sans); padding: 0.5rem 0.8rem; border: 1px solid var(--rule); border-radius: 6px;
+  background: var(--bg); color: var(--ink); cursor: pointer; }
+.btn-quiet:hover { border-color: var(--muted); }
+.audited { padding-top: 0.1rem; }
+.audited-label { font: 600 0.84rem/1.4 var(--sans); color: var(--muted); margin: 0 0 0.6rem; }
+.chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.chip { display: inline-block; font: 600 0.8rem/1.5 var(--sans); padding: 0.1rem 0.55rem; border-radius: 4px;
+  border: 1px solid currentColor; text-decoration: none; white-space: nowrap; }
+a.chip:hover { text-decoration: none; }
+.chip-fixed { color: var(--fixed); background: var(--fixed-soft); border-color: transparent; }
+.chip-co { color: var(--co); background: var(--co-soft); border-color: transparent; }
+.chip-hybrid { color: var(--hybrid); background: var(--hybrid-soft); border-color: transparent; }
+.chip-leak { color: var(--fixed); background: transparent; border-style: dashed; }
+.legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; margin: 0.7rem 0 0; font: 400 0.8rem/1.4 var(--sans); color: var(--muted); }
+.lg::before { content: ""; display: inline-block; width: 0.62rem; height: 0.62rem; border-radius: 2px; margin-right: 0.35rem; vertical-align: -0.02rem; }
+.lg-fixed::before { background: var(--fixed); }
+.lg-co::before { background: var(--co); }
+.lg-hybrid::before { background: var(--hybrid); }
+.lg-leak::before { border: 1px dashed var(--fixed); }
+
+/* TL;DR */
+.tldr { background: var(--panel); border-radius: 8px; padding: 1.1rem 1.3rem 0.4rem; margin: 0.8rem 0 0; }
+.tldr .eyebrow { margin-bottom: 0.6rem; }
+.tldr ul { margin: 0; padding-left: 1.1rem; }
+.tldr li { margin: 0 0 0.7rem; font-size: 1.05rem; line-height: 1.55; }
+
+/* body text */
+.post h2 { font: var(--head-w) 1.6rem/1.2 var(--head); letter-spacing: var(--head-ls); margin: 3.4rem 0 1rem; text-wrap: balance; scroll-margin-top: 4.5rem; }
+.post h2 .secnum { font: 500 1rem/1 var(--mono); color: var(--accent); margin-right: 0.7rem; vertical-align: 0.18rem; }
+.post h3 { font: var(--head-w) 1.2rem/1.3 var(--head); margin: 2.2rem 0 0.7rem; text-wrap: balance; scroll-margin-top: 4.5rem; }
+.post p { margin: 0 0 1.1rem; }
+.post ul, .post ol { margin: 0 0 1.2rem; padding-left: 1.3rem; }
+.post li { margin: 0 0 0.5rem; }
+.post li::marker { color: var(--faint); }
+strong { font-weight: 700; }
+code { font: 400 0.84em/1 var(--mono); background: var(--panel); padding: 0.12em 0.35em; border-radius: 3px; }
+.dc { font: 500 0.74em/1 var(--mono); color: var(--muted); border: 1px solid var(--rule); border-radius: 3px; padding: 0.12em 0.32em; white-space: nowrap; vertical-align: 0.06em; }
+:lang(zh-CN) .post p, :lang(zh-CN) .post li { line-height: 1.85; font-size: 1.0625rem; }
+
+/* system write-ups */
+.sys { scroll-margin-top: 4.5rem; transition: background-color 0.6s, box-shadow 0.6s; border-radius: 4px; }
+.sys::before { content: ""; display: inline-block; width: 0.55em; height: 0.55em; border-radius: 2px; margin-right: 0.45em; vertical-align: 0.08em; }
+.sys-fixed::before { background: var(--fixed); }
+.sys-co::before { background: var(--co); }
+.sys-hybrid::before { background: var(--hybrid); }
+.sys-leak::before { border: 1px dashed var(--fixed); }
+.flash { background: var(--panel); box-shadow: 0 0 0 0.5rem var(--panel); }
+
+/* tables */
+.table-wrap { overflow-x: auto; margin: 1.5rem 0 2rem; }
+table { border-collapse: collapse; width: 100%; font: 400 0.92rem/1.45 var(--sans); }
+th, td { text-align: left; vertical-align: top; padding: 0.55rem 0.8rem 0.55rem 0; border-bottom: 1px solid var(--rule); }
+thead th { font-weight: 700; border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
+tbody th { font-weight: 700; white-space: nowrap; }
+td.num { font-family: var(--mono); font-size: 0.86rem; white-space: nowrap; }
+.datatable th:first-child, .datatable td:first-child { width: 1%; white-space: nowrap; padding-right: 1.6rem; }
+.systable tbody tr { cursor: pointer; }
+.systable tbody tr:hover { background: var(--panel); }
+.systable tbody th a { color: var(--ink); text-decoration: none; }
+.systable td:last-child { min-width: 14rem; }
+
+/* figures */
+.fig { margin: 2.4rem 0; }
+figcaption { font: 400 0.9rem/1.55 var(--sans); color: var(--muted); margin-top: 0.75rem; }
+.fig-n { font-weight: 700; color: var(--ink); }
+figcaption strong { color: var(--ink); font-weight: 600; }
+.chart-y { font: 600 0.92rem/1.35 var(--sans); color: var(--muted); margin: 0 0 0.35rem !important; }
+.chart-x { font: 400 0.92rem/1.35 var(--sans); color: var(--muted); margin: 0.15rem 0 0 !important; text-align: center; }
+.chart-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; font: 400 0.92rem/1.4 var(--sans); color: var(--muted); margin: 0 0 0.4rem !important; }
+.chart-legend .sw, .chart-legend .ln { display: inline-block; margin-left: 0.5rem; }
+.chart-legend .sw { width: 0.8rem; height: 0.8rem; border-radius: 3px; border: 1.5px solid; }
+.sw-fixed { background: var(--fixed-soft); border-color: var(--fixed) !important; }
+.sw-co { background: var(--co-soft); border-color: var(--co) !important; }
+.ln { width: 1.3rem; height: 0; border-top: 2.5px solid; vertical-align: 0.25rem; }
+.ln-r1 { border-color: var(--r1); } .ln-r2 { border-color: var(--r2); } .ln-r4 { border-color: var(--r4); }
+.ln-accent { border-color: var(--accent); }
+.ln-q95 { border-top: 1.5px dashed var(--accent); }
+.chart-box { width: 100%; min-height: 1px; }
+.chart-box svg { display: block; overflow: visible; }
+
+/* chart marks (shared by every figure) */
+.chart-box[data-chart="space"] svg .lbl { font-size: 15.5px; }
+.chart-box[data-chart="space"] svg .tick { font-size: 14px; }
+.chart-box[data-chart="space"] svg .lbl-b, .chart-box[data-chart="space"] svg .t-fixed, .chart-box[data-chart="space"] svg .t-co, .chart-box[data-chart="space"] svg .t-hybrid { font-size: 17px; }
+svg .grid { stroke: var(--rule); stroke-width: 1; fill: none; }
+svg .ax { stroke: var(--faint); stroke-width: 1; fill: none; }
+svg .tick { fill: var(--muted); font: 400 13px var(--mono); }
+svg .lbl { fill: var(--muted); font: 400 14px var(--sans); }
+svg .lbl-b { fill: var(--ink); font: 700 15px var(--sans); }
+svg .ref-dash { stroke: var(--faint); stroke-width: 1.2; stroke-dasharray: 3 3; fill: none; }
+svg .band { fill: var(--faint); fill-opacity: 0.14; }
+svg .fit { stroke: var(--faint); stroke-width: 1.2; fill: none; }
+svg .err { stroke-width: 2; fill: none; }
+svg .c-fixed { stroke: var(--fixed); fill: var(--fixed); }
+svg .c-co { stroke: var(--co); fill: var(--co); }
+svg .c-hybrid { stroke: var(--hybrid); fill: var(--hybrid); }
+svg .t-fixed { fill: var(--fixed); font: 700 15px var(--sans); }
+svg .t-co { fill: var(--co); font: 700 15px var(--sans); }
+svg .t-hybrid { fill: var(--hybrid); font: 700 15px var(--sans); }
+svg .none-dash { stroke: var(--co); stroke-width: 1.6; stroke-dasharray: 5 4; fill: none; }
+svg .line-r1 { stroke: var(--r1); stroke-width: 3; fill: none; } svg .dot-r1 { fill: var(--r1); }
+svg .line-r2 { stroke: var(--r2); stroke-width: 3; fill: none; } svg .dot-r2 { fill: var(--r2); }
+svg .line-r4 { stroke: var(--r4); stroke-width: 3; fill: none; } svg .dot-r4 { fill: var(--r4); }
+svg .ideal { fill: none; stroke: var(--faint); stroke-width: 1.3; stroke-dasharray: 4 4; }
+svg .arrow-hy { stroke: var(--hybrid); stroke-width: 1.6; stroke-dasharray: 4 4; fill: none; }
+svg .head-hy { fill: var(--hybrid); }
+svg .head-ax { fill: var(--faint); }
+svg .noise { fill: var(--faint); fill-opacity: 0.6; }
+svg .first { fill: none; stroke: var(--ink); stroke-width: 1.6; }
+svg .best { fill: var(--accent); }
+svg .curve { stroke: var(--accent); stroke-width: 2.2; fill: none; }
+svg .q95 { stroke: var(--accent); stroke-width: 1.3; stroke-dasharray: 4 3; fill: none; }
+svg .q95-band { fill: var(--accent); fill-opacity: 0.08; }
+svg .guide { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 2 3; fill: none; }
+svg .truth { stroke: var(--ink); stroke-width: 1.2; stroke-dasharray: 3 3; fill: none; }
+
+/* concept diagram */
+.dg { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1.4rem 1.6rem; }
+.dg-panel { min-width: 0; }
+.dg-panel svg { display: block; width: 100%; height: auto; }
+.dg-title { font: 700 0.98rem/1.3 var(--sans); margin: 0 0 0.5rem !important; }
+.dg-head-t { font: 700 0.92rem/1.35 var(--sans); margin: 0.6rem 0 0.2rem !important; }
+.dg-body { font: 400 0.88rem/1.5 var(--sans); color: var(--muted); margin: 0 !important; }
+.dg .dg-box { fill: var(--bg); stroke: var(--ink); stroke-width: 1.4; }
+.dg .dg-fixed { fill: var(--fixed-soft); stroke: var(--fixed); }
+.dg .dg-co { fill: var(--co-soft); stroke: var(--co); }
+.dg .dg-loop { fill: none; stroke: var(--faint); stroke-width: 1.2; stroke-dasharray: 5 4; }
+.dg .dg-t { fill: var(--ink); font: 600 14px var(--sans); }
+.dg .dg-s { fill: var(--muted); font: 400 11.5px var(--sans); }
+.dg .dg-arrow { stroke: var(--ink); stroke-width: 1.4; fill: none; }
+.dg .dg-dash { stroke: var(--faint); stroke-dasharray: 3 3; }
+.dg .dg-head { fill: var(--ink); }
+.fig > .chart-legend { margin-top: 0.9rem !important; }
+
+/* notes */
+.note { display: block; font: 400 0.9rem/1.55 var(--sans); color: var(--muted); border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule); padding: 0.75rem 0; margin: 1.5rem 0; }
+.note-label { font: 700 0.7rem/1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-right: 0.3rem; }
+
+/* appendix, references, citation */
+.appendix { border: 1px solid var(--rule); border-radius: 6px; padding: 0 1.2rem; margin: 0 0 2rem; }
+.appendix > summary { font: 600 0.95rem/1.4 var(--sans); padding: 0.9rem 0; cursor: pointer; color: var(--accent); }
+.appendix[open] > summary { border-bottom: 1px solid var(--rule); margin-bottom: 1rem; }
+.appendix-body h3 { margin-top: 1.2rem; }
+.refs { font-size: 0.97rem; }
+.refs ul { padding-left: 1.1rem; }
+.cite h2 { font-size: 1.2rem; }
+.bib { position: relative; }
+.bib pre { font: 400 0.8rem/1.6 var(--mono); background: var(--panel); border-radius: 6px; padding: 1rem 1.1rem; margin: 0; overflow-x: auto; white-space: pre; }
+.bib .copy { position: absolute; top: 0.6rem; right: 0.6rem; }
+
+/* best-of-N widget */
+.widget { border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 1.1rem 0 1.2rem; }
+.bon-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 0.9rem; font: 600 0.9rem/1 var(--sans); }
+.bon-controls input[type="range"] { flex: 1 1 10rem; min-width: 0; accent-color: var(--accent); }
+.bon-controls output { font: 500 0.95rem/1 var(--mono); min-width: 2ch; }
+.bon-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1.4rem 1.8rem; margin-top: 1.1rem; }
+.bon-panel { min-width: 0; }
+.bon-panel > .chart-y { min-height: 2.7em; }
+.bon-key { font: 400 0.9rem/1.4 var(--sans); color: var(--muted); margin-top: 0.55rem; }
+.bon-key > div { display: grid; grid-template-columns: 1.7rem 1fr; margin-top: 0.2rem; }
+.bon-key .ln { display: block; margin-top: 0.6em; }
+.bon-readout { font: 400 0.9rem/1.45 var(--sans); color: var(--muted); margin: 0.55rem 0 0 !important; }
+
+:root { --accent: #2c5a8f; --fixed: #4e79a7; --fixed-soft: #e7eef6; --co: #d1495b; --co-soft: #fae6e8; --hybrid: #9a6fb0; --hybrid-soft: #f1eaf5; --r1: #2c4f75; --r2: #4e79a7; --r4: #a9bfd9 }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --accent: #8db4e6; --fixed: #86acd8; --fixed-soft: #182436; --co: #f0848f; --co-soft: #3a1a1f; --hybrid: #c7a3dd; --hybrid-soft: #2c2236; --r1: #c3d6ee; --r2: #86acd8; --r4: #3d5c82 } }
+:root[data-theme="dark"] { --accent: #8db4e6; --fixed: #86acd8; --fixed-soft: #182436; --co: #f0848f; --co-soft: #3a1a1f; --hybrid: #c7a3dd; --hybrid-soft: #2c2236; --r1: #c3d6ee; --r2: #86acd8; --r4: #3d5c82 }
+</style>
+
+<div class="topbar"><div class="topbar-inner">
+  <a class="brand" href="#top" id="brand">The Evaluator Dilemma</a>
+</div></div>
+<div class="page" id="top"><div class="layout">
+<nav class="toc" aria-label="Contents" data-lang-block="en"><p class="toc-title">Contents</p><ol class="toc-list"><li><a href="#en-s1" data-target="en-s1"><span class="secnum">1</span>Two examples</a></li><li><a href="#en-s2" data-target="en-s2"><span class="secnum">2</span>The evaluator dilemma</a></li><li><a href="#en-s3" data-target="en-s3"><span class="secnum">3</span>What the audits found</a></li><li><a href="#en-s4" data-target="en-s4"><span class="secnum">4</span>What keeps going wrong</a></li><li><a href="#en-s5" data-target="en-s5"><span class="secnum">5</span>Why it happens: loops where we know the truth</a></li><li><a href="#en-s6" data-target="en-s6"><span class="secnum">6</span>What an audit should check</a></li><li><a href="#en-s7" data-target="en-s7"><span class="secnum">7</span>Ways out</a></li><li><a href="#en-s8" data-target="en-s8"><span class="secnum">8</span>Scalable oversight comes first</a></li><li><a href="#en-appendix" data-target="en-appendix">Appendix: how we measured</a></li><li><a href="#en-refs" data-target="en-refs">References</a></li></ol></nav>
+<article class="post" lang="en" data-lang-block="en"><header class="hero">
+<h1 class="title"><span class="t-name">The Evaluator Dilemma</span> <span class="t-deck">Does Recursive Self-Improvement Really Improve?</span></h1>
+<dl class="meta">
+<div class="mi"><dt>Author</dt><dd class="byline">Yanchen Liu</dd></div>
+<div class="mi"><dt>Published</dt><dd>November 2, 2026</dd></div>
+<div class="mi"><dt>Reading time</dt><dd>20 min read</dd></div>
+<div class="mi"><dt>Audit cards</dt><dd><a href="https://liuyanchen1015.github.io/evaluator-dilemma/registry/" target="_blank" rel="noopener">RSI Audit Registry <span aria-hidden="true">↗</span></a></dd></div>
+</dl>
+<div class="audited"><p class="audited-label">Systems audited, by the evaluator in their loop</p><ul class="chips"><li><a class="chip chip-fixed" href="#en-sys-dgm">DGM</a></li><li><a class="chip chip-fixed" href="#en-sys-aisci">AI Scientist v2</a></li><li><a class="chip chip-fixed" href="#en-sys-autoresearch">autoresearch</a></li><li><a class="chip chip-leak" href="#en-sys-openrsi">OpenRSI Index</a></li><li><a class="chip chip-co" href="#en-sys-mae">MAE</a></li><li><a class="chip chip-co" href="#en-sys-mass">MASS</a></li><li><a class="chip chip-co" href="#en-sys-rzero">R-Zero</a></li><li><a class="chip chip-hybrid" href="#en-sys-evolm">EvoLM</a></li></ul><p class="legend"><span class="lg lg-fixed">Fixed</span><span class="lg lg-co">Co-evolving</span><span class="lg lg-hybrid">Hybrid</span><span class="lg lg-leak">Outside test pulled into the loop</span></p></div>
+</header><section class="tldr" aria-label="TL;DR"><p class="eyebrow">TL;DR</p><ul><li>Self-improving AI systems decide what counts as "better" with an evaluator inside their own loop, and they usually report their progress with the same kind of evaluator. We think these progress claims need an outside audit.</li><li>We audited eight published systems. In none of them did the loop's own evaluator give good evidence for the gain the paper reports.</li><li>Fixed evaluators, like unit tests or a reviewer model, get gamed or only check a small part of the task. Evaluators that train together with the model, like a model grading itself, slowly lose the ability to tell good answers from bad ones.</li><li>The root cause is simple. Once an evaluator's score is used to steer the loop, the loop learns to please that evaluator, so the score stops being independent evidence.</li><li>Seen this way, steering and checking RSI are both scalable oversight problems: a judge, often weaker than the system, has to tell whether a system that keeps getting stronger really got better.</li><li>We keep an audit card for every system in a public registry, and we list what an audit should check. Making that audit rigorous is our next project.</li></ul></section><details class="toc-m"><summary>Contents</summary><ol class="toc-list"><li><a href="#en-s1" data-target="en-s1"><span class="secnum">1</span>Two examples</a></li><li><a href="#en-s2" data-target="en-s2"><span class="secnum">2</span>The evaluator dilemma</a></li><li><a href="#en-s3" data-target="en-s3"><span class="secnum">3</span>What the audits found</a></li><li><a href="#en-s4" data-target="en-s4"><span class="secnum">4</span>What keeps going wrong</a></li><li><a href="#en-s5" data-target="en-s5"><span class="secnum">5</span>Why it happens: loops where we know the truth</a></li><li><a href="#en-s6" data-target="en-s6"><span class="secnum">6</span>What an audit should check</a></li><li><a href="#en-s7" data-target="en-s7"><span class="secnum">7</span>Ways out</a></li><li><a href="#en-s8" data-target="en-s8"><span class="secnum">8</span>Scalable oversight comes first</a></li><li><a href="#en-appendix" data-target="en-appendix">Appendix: how we measured</a></li><li><a href="#en-refs" data-target="en-refs">References</a></li></ol></details><h2 id="en-s1"><span class="secnum">1</span>Two examples</h2><p>Let's start with two systems.</p><p>The <a href="https://arxiv.org/abs/2505.22954" target="_blank" rel="noopener">Darwin Gödel Machine</a> (DGM) is a coding agent that rewrites its own code. Each new version is tested on SWE-bench, a set of real GitHub issues that come with unit tests, and the versions that pass more tests survive. We took the first and the best version the authors released and ran both on 50 SWE-bench Verified tasks that DGM never saw during its search. The number of tasks that pass the tests went from 2 to 12.</p><p>Then we looked at the patches themselves. Three of the ten new passes don't actually fix the bug. They are shortcuts that make the tests pass while breaking the code somewhere else. One of them monkeypatches a sympy operator so that <code>2*adjoint(x)</code> recurses forever. The tests never check for that. This is how a fixed evaluator gets gamed: DGM is selected on passing the tests, so a shortcut that passes them counts as progress just like a real fix. Counted against the reference fixes, the real gain is 2 to 9, not 2 to 12.</p><p><a href="https://arxiv.org/abs/2510.23595" target="_blank" rel="noopener">Multi-Agent Evolve</a> (MAE) works differently. One model writes questions, answers them, grades its own answers, and is then trained on those grades. This is a co-evolving evaluator: the grader changes as the model trains. We gave its grader 1,000 math answers whose correctness we already knew. It gave 996 of them 8 out of 10. Its ability to tell right answers from wrong ones was close to chance level (AUC 0.51). Nobody needs to game this grader. It has simply stopped saying anything useful.</p><p>These two systems use opposite kinds of evaluator, but they end up in the same place. <strong>The number that says "we improved" doesn't actually show that the system improved.</strong></p><p>In this post we try to explain why this keeps happening. We first set up the problem (Section 2), then go through our audits of eight published systems (Section 3) and group what went wrong (Section 4). Next, we reproduce these failures in small loops where we know the right answers (Section 5) and list what an audit should check (Section 6). We end with the ways out and what they imply (Sections 7 and 8). Every system also has a full audit card in our <a href="https://liuyanchen1015.github.io/evaluator-dilemma/registry/" target="_blank" rel="noopener">RSI Audit Registry</a>.</p><h2 id="en-s2"><span class="secnum">2</span>The evaluator dilemma</h2><p><strong>What is a self-improvement loop?</strong> A recursive self-improvement (RSI) loop repeats three steps. The system proposes a change to itself: new code, a new prompt, new training data, or new model weights. An evaluator scores the change. The best changes are kept, and the loop starts again from there.</p><p>The evaluator can be many things: unit tests, a benchmark, an LLM judge, or the model grading its own work. Whatever it is, it plays two roles. It steers the loop, because it decides which changes survive. And it is usually also what the paper uses to report its gains. These two roles pull against each other. Once a score steers the loop, the loop learns to raise that score, so a higher score alone no longer proves the system really got better.</p><figure class="fig fig-wide" id="en-fig-1"><div class="dg"><div class="dg-panel"><p class="dg-title">(a) Fixed evaluator</p><svg viewBox="0 0 300 214" role="img" aria-label="(a) Fixed evaluator"><defs><marker id="dg-ar-en" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="dg-head" d="M0,0 L10,5 L0,10 z"/></marker></defs><rect class="dg-box dg-fixed" x="70" y="6" width="160" height="50" rx="6"/><text class="dg-t" x="150.0" y="28.0" text-anchor="middle">Evaluator</text><text class="dg-s" x="150.0" y="44.0" text-anchor="middle">outside the loop, unchanged</text><line class="dg-arrow" x1="150" y1="56" x2="150" y2="100" marker-end="url(#dg-ar-en)"/><text class="dg-s" x="158" y="83">score</text><rect class="dg-loop" x="8" y="104" width="284" height="104" rx="8"/><text class="dg-s" x="18" y="121">self-improvement loop</text><rect class="dg-box" x="24" y="140" width="104" height="46" rx="6"/><text class="dg-t" x="76.0" y="167.5" text-anchor="middle">Solver t</text><line class="dg-arrow" x1="128" y1="163" x2="168" y2="163" marker-end="url(#dg-ar-en)"/><rect class="dg-box" x="172" y="140" width="104" height="46" rx="6"/><text class="dg-t" x="224.0" y="167.5" text-anchor="middle">Solver t+1</text></svg><p class="dg-head-t">Independent, but bounded</p><p class="dg-body">The evaluator does not improve, so it eventually stops telling better outputs from worse.</p></div><div class="dg-panel"><p class="dg-title">(b) Co-evolving evaluator</p><svg viewBox="0 0 300 214" role="img" aria-label="(b) Co-evolving evaluator"><defs><marker id="dg-ar-en" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="dg-head" d="M0,0 L10,5 L0,10 z"/></marker></defs><rect class="dg-loop" x="8" y="6" width="284" height="202" rx="8"/><text class="dg-s" x="18" y="23">self-improvement loop</text><rect class="dg-box" x="24" y="36" width="104" height="44" rx="6"/><text class="dg-t" x="76.0" y="62.5" text-anchor="middle">Solver t</text><rect class="dg-box dg-co" x="172" y="36" width="104" height="44" rx="6"/><text class="dg-t" x="224.0" y="62.5" text-anchor="middle">Evaluator t</text><line class="dg-arrow dg-dash" x1="130" y1="52" x2="170" y2="52" marker-end="url(#dg-ar-en)"/><line class="dg-arrow dg-dash" x1="170" y1="66" x2="130" y2="66" marker-end="url(#dg-ar-en)"/><line class="dg-arrow" x1="76" y1="80" x2="76" y2="140" marker-end="url(#dg-ar-en)"/><line class="dg-arrow" x1="224" y1="80" x2="224" y2="140" marker-end="url(#dg-ar-en)"/><rect class="dg-box" x="24" y="144" width="104" height="44" rx="6"/><text class="dg-t" x="76.0" y="170.5" text-anchor="middle">Solver t+1</text><rect class="dg-box dg-co" x="172" y="144" width="104" height="44" rx="6"/><text class="dg-t" x="224.0" y="170.5" text-anchor="middle">Evaluator t+1</text></svg><p class="dg-head-t">Keeps up, but has no ground truth</p><p class="dg-body">A rising internal score and rising true quality look the same from inside the loop.</p></div><div class="dg-panel"><p class="dg-title">(c) Anchored co-evolution</p><svg viewBox="0 0 300 214" role="img" aria-label="(c) Anchored co-evolution"><defs><marker id="dg-ar-en" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="dg-head" d="M0,0 L10,5 L0,10 z"/></marker></defs><rect class="dg-loop" x="8" y="6" width="284" height="104" rx="8"/><text class="dg-s" x="18" y="23">self-improvement loop</text><rect class="dg-box" x="24" y="40" width="104" height="46" rx="6"/><text class="dg-t" x="76.0" y="67.5" text-anchor="middle">Solver</text><rect class="dg-box dg-co" x="172" y="40" width="104" height="46" rx="6"/><text class="dg-t" x="224.0" y="67.5" text-anchor="middle">Internal evaluator</text><line class="dg-arrow dg-dash" x1="130" y1="56" x2="170" y2="56" marker-end="url(#dg-ar-en)"/><line class="dg-arrow dg-dash" x1="170" y1="70" x2="130" y2="70" marker-end="url(#dg-ar-en)"/><line class="dg-arrow" x1="150" y1="110" x2="150" y2="150" marker-end="url(#dg-ar-en)"/><text class="dg-s" x="158" y="134">audit / gate</text><rect class="dg-box dg-fixed" x="70" y="154" width="160" height="52" rx="6"/><text class="dg-t" x="150.0" y="177.0" text-anchor="middle">External anchor</text><text class="dg-s" x="150.0" y="193.0" text-anchor="middle">fixed, outside the loop</text></svg><p class="dg-head-t">The boundary moves one layer out</p><p class="dg-body">The fixed evaluator is pushed one layer out, but the loop still depends on it.</p></div></div><p class="chart-legend"><span class="sw sw-fixed"></span>fixed, independent of the loop<span class="sw sw-co"></span>changes with the system</p><figcaption><span class="fig-n">Figure 1.</span> <strong>Three places to put the evaluator.</strong> A fixed evaluator sits outside the loop and never changes. A co-evolving evaluator changes along with the model. Anchored co-evolution adds a fixed check one layer further out, so the loop still depends on it.</figcaption></figure><p>Roughly, there are three ways to set up the evaluator.</p><p><strong>Fixed evaluators</strong> stay the same while the system improves: unit tests, a benchmark, a frozen reward model. They are independent of the model, which is good. But they only check what they were written to check. Push hard enough against them and the loop learns what they reward, not what they were meant to measure. And once the model is better than the evaluator can judge, the evaluator can no longer tell the difference.</p><p><strong>Co-evolving evaluators</strong> improve together with the model: the model grades itself, or a judge is trained alongside it. They can keep up with the model. But they are no longer independent. They share the model's blind spots, drift along with it, and can keep reporting progress long after they've stopped telling good from bad.</p><p><strong>Hybrid evaluators</strong> mix the two, for example a self-judge that gets checked against a fixed anchor now and then. This sounds like the best of both. In practice it inherits the anchor's limits: wherever the anchor can't see, only the self-judge is left. For instance, one recent system lets its grading rules evolve along with the agent, but only keeps rules that agree with ten fixed examples whose grades are already known (the external anchor; <a href="https://arxiv.org/abs/2607.12790" target="_blank" rel="noopener">Zhang et al., 2026</a>). This just wraps a fixed evaluator around a co-evolving one, so the problem moves back to the fixed evaluator. The rules answer only to what those ten examples can check. In the paper's report-writing task, the evolved skills gamed the hand-written rubric that scored them, and it took a separate independent judge to catch it.</p><p>I think these are really one problem seen from three sides. What matters is not which kind of evaluator you pick, but whether its score feeds back into the loop. If the score is used as a reward, a selection rule, or feedback the agent can read, the loop will optimize against it, and the score is no longer independent evidence. This is the old problem of <a href="https://arxiv.org/abs/1606.06565" target="_blank" rel="noopener">reward hacking</a>, <a href="https://arxiv.org/abs/2210.10760" target="_blank" rel="noopener">reward-model over-optimization</a>, and <a href="https://arxiv.org/abs/2412.03597" target="_blank" rel="noopener">benchmark hacking</a>. If the score never feeds back, it stays independent, but it can only vouch for the narrow slice of behavior it measures.</p><figure class="fig chart" id="en-fig-2"><div class="chart-box" data-chart="space" data-lang="en" data-aria="Scatter sketch of evaluator designs by independence and ability to keep up."></div><figcaption><span class="fig-n">Figure 2.</span> <strong>No design reaches the top-right corner.</strong> Existing designs trade independence from the model against the ability to keep up with it.</figcaption></figure><p>So a claim of self-improvement needs two signals: one to steer the loop, and a separate one to check it.</p><p>Both are actually <a href="https://arxiv.org/abs/2211.03540" target="_blank" rel="noopener">scalable oversight</a> problems: each signal has to tell whether a change made the system better, and it is often weaker than the system it judges. They differ in what else they must do: the steering signal has to hold up while the loop optimizes against it, and the checking signal has to stay out of the loop. The audits below are also a test of how well today's oversight works on RSI systems. For each system, we ask which signal steered the loop and which one checked it. We come back to scalable oversight at the end.</p><h2 id="en-s3"><span class="secnum">3</span>What the audits found</h2><p>In every system we audited, the signal that steered the loop was also the one used to claim the gain, and it didn't hold up on its own. Where a gain was real, the evidence came from some check outside the loop, and that check covered less than the paper claimed.</p><p>For each system, we first say what it does and what it claims, then what we found. How we measured things is in the appendix, and all the numbers are in the system's registry card.</p><div class="table-wrap"><table class="systable"><thead><tr><th scope="col">System</th><th scope="col">What scores progress in the loop</th><th scope="col">Type</th><th scope="col">What we found</th></tr></thead><tbody><tr data-target="en-sys-dgm" title="Jump to the write-up"><th scope="row"><a href="#en-sys-dgm">DGM</a></th><td>Unit tests</td><td><span class="chip chip-fixed">Fixed</span></td><td><strong>Gamed.</strong> The tests check too little, so the agent learned to pass them without really fixing the code: 3 of 10 new passes are shortcuts that break it.</td></tr><tr data-target="en-sys-aisci" title="Jump to the write-up"><th scope="row"><a href="#en-sys-aisci">AI Scientist v2</a></th><td>GPT-4o reviewer</td><td><span class="chip chip-fixed">Fixed</span></td><td><strong>Too weak to judge.</strong> The auto-reviewer gave all 3 papers a 7 and accepted them, including the one humans scored 3, 3, 3.</td></tr><tr data-target="en-sys-autoresearch" title="Jump to the write-up"><th scope="row"><a href="#en-sys-autoresearch">autoresearch</a></th><td>Validation loss after 5 minutes</td><td><span class="chip chip-fixed">Fixed</span></td><td><strong>Gamed.</strong> A 5-minute limit rewards squeezing in more training steps. Halving the batch size does exactly that: it gains 0.050 at 5 minutes but only 0.019 at 30. The overall gain does hold at 30 minutes.</td></tr><tr data-target="en-sys-openrsi" title="Jump to the write-up"><th scope="row"><a href="#en-sys-openrsi">OpenRSI Index</a></th><td>Hidden test, but agents can resubmit</td><td><span class="chip chip-leak">Outside, pulled in</span></td><td><strong>Overfits the test.</strong> Agents resubmit and tune on the score, so a higher score can just mean a better fit to this test. On the one task we re-tested, the gain mostly disappears on fresh data.</td></tr><tr data-target="en-sys-mae" title="Jump to the write-up"><th scope="row"><a href="#en-sys-mae">MAE</a></th><td>The model grades itself</td><td><span class="chip chip-co">Co-evolving</span></td><td><strong>Can't tell right from wrong.</strong> The model gave 996 of 1,000 math answers the same 8 out of 10 (AUC 0.51, close to chance level), and no checkpoint beats the start.</td></tr><tr data-target="en-sys-mass" title="Jump to the write-up"><th scope="row"><a href="#en-sys-mass">MASS</a></th><td>The model grades itself</td><td><span class="chip chip-co">Co-evolving</span></td><td><strong>Score up, real ability flat.</strong> On benchmarks with right answers, the model doesn't improve. One run even rewrote its simulator to make the task trivial, and the outside judges still preferred it.</td></tr><tr data-target="en-sys-rzero" title="Jump to the write-up"><th scope="row"><a href="#en-sys-rzero">R-Zero</a></th><td>The previous model's majority vote</td><td><span class="chip chip-co">Co-evolving</span></td><td><strong>Drift.</strong> The model labels its own training data, and the labels get worse: 85% correct in round 1, 71% in round 2.</td></tr><tr data-target="en-sys-evolm" title="Jump to the write-up"><th scope="row"><a href="#en-sys-evolm">EvoLM</a></th><td>Evolved rubrics + frozen judge</td><td><span class="chip chip-hybrid">Hybrid</span></td><td><strong>External anchor too weak to judge.</strong> The rubrics evolve, but the frozen judge applying them can't tell correct code from wrong code (AUC 0.49–0.56). With the baseline and answer extraction fixed, the +2.2 average gain shrinks to +0.4.</td></tr></tbody></table></div><h3 id="en-s3-h1">Fixed evaluators: gamed, or narrower than the claim</h3><p id="en-sys-dgm" class="sys sys-fixed"><strong>DGM</strong> is the example from the opening. The tests don't depend on the agent, but the search still found ways to pass them without doing what they were meant to check. The most recent work in this line, the <a href="https://arxiv.org/abs/2608.07645" target="_blank" rel="noopener">Mendel Gödel Machine</a>, has the same problem: in pilot runs we recovered from its repository, the tests again let through patches that break the code.</p><p id="en-sys-aisci" class="sys sys-fixed"><strong><a href="https://arxiv.org/abs/2504.08066" target="_blank" rel="noopener">The AI Scientist v2</a></strong> says one of its AI-written papers passed peer review at an ICLR 2025 workshop. We ran the system's own reviewer on the three papers it submitted. It gave all three a 7 and accepted them, including the one human reviewers scored 3, 3 and 3. So what actually checked the papers was the human reviewers, not the system's own reviewer.</p><p id="en-sys-autoresearch" class="sys sys-fixed"><strong><a href="https://github.com/karpathy/autoresearch" target="_blank" rel="noopener">autoresearch</a></strong> (by Karpathy) lets an agent edit a training script and keeps an edit whenever the validation loss after 5 minutes of training goes down. We reran 37 versions of the script. Just changing the random seed already moves the loss by about 0.004, and 21 of the 22 kept edits are smaller than that. The edits as a whole do help: the loss drops by 0.043 after 30 minutes of training, and the gain holds on text from a different distribution. But "better after 5 minutes" is a narrower question than "better model":</p><ul><li>It overrates edits that just fit more training steps into 5 minutes. Halving the batch size gains 0.050 at 5 minutes but only 0.019 at 30.</li><li>It gets the best edit wrong. Going to depth 9 looks worse at 5 minutes but gives the largest gain at 30 (−0.021).</li><li>The other seven edits we measured gain 0.010 at 5 minutes and almost nothing (0.001) at 30.</li></ul><h3 id="en-s3-h2">An outside evaluator that gets pulled into the loop</h3><p id="en-sys-openrsi" class="sys sys-leak"><strong><a href="https://github.com/OpenRSI-Foundation/OpenRSI-Index" target="_blank" rel="noopener">OpenRSI Index</a></strong> is a benchmark for self-improving research agents. Each task has a hidden test the agent can't read or edit, so in principle it can check progress from outside the loop. The problem here is different from DGM's. DGM's tests were incomplete. Here the test itself may be fine, but the agent sees its hidden score after every submission, and it uses it. In Claude's run logs, the agent cites its hidden score when deciding what to do next 69 times on one task and 44 times on another. Agents run grid searches on the hidden test, keep or undo changes based on it, and even resubmit the same code several times and report the best run.</p><p>Why does that matter? A test is only a sample of the cases we care about, so part of every score is luck. If you submit N times and keep the best score, that best score looks better than it really is even if nothing got better, and the more you submit, the bigger this fake gain. The logs keep only total scores, so we can't say how much of any reported gain is this kind of luck, but we can check in other ways. On molmo2, the agent's own notes say the gain "comes from suppressing predictions", which the metric happens to reward: the share of valid predictions fell from 0.86 to 0.53.</p><figure class="fig widget" id="en-fig-3" data-bon="en">
+<div class="bon-controls">
+  <label for="en-bon-n">Submissions N</label>
+  <input type="range" id="en-bon-n" min="1" max="80" value="21">
+  <output id="en-bon-out" for="en-bon-n">21</output>
+  <button type="button" class="btn-quiet" id="en-bon-redraw">Draw again</button>
+</div>
+<div class="bon-panels">
+  <div class="bon-panel"><p class="chart-y">N submissions of a system that isn&#x27;t getting better</p>
+    <div class="chart-box bon-strip" data-aria="Dot plot of N noisy scores of an unchanged system, with the best one marked."></div>
+    <p class="chart-x">score minus true score, in units of test noise</p>
+    <p class="bon-readout" aria-live="polite"></p></div>
+  <div class="bon-panel"><p class="chart-y">Fake gain from keeping the best, in units of test noise</p>
+    <div class="chart-box bon-curve" data-aria="Line chart of the expected best-of-N gain against N."></div>
+    <p class="chart-x">submissions N</p>
+    <div class="bon-key">
+      <div><span class="ln ln-accent"></span><span>average</span></div>
+      <div><span class="ln ln-q95"></span><span>95% of runs stay below this line, 5% land above it</span></div>
+    </div>
+    <p class="bon-readout bon-now" aria-live="polite"></p></div>
+</div>
+<figcaption><span class="fig-n">Figure 3.</span> <strong>Picking the best of N when nothing improved.</strong> Left: each dot is one submission to a small test from a system that isn&#x27;t getting better, so the scores differ only by noise. The best one still lands above the true score, and the gap grows with N. Right: how big that fake gain gets as N grows. The solid line is the average, and only 5% of runs land above the dashed line. This shows the general effect when submissions are independent. It isn&#x27;t a measurement of any task: real submissions share one test and resemble each other, so their fake gain is smaller.</figcaption>
+</figure><p>We also re-tested one task, molmoweb, on fresh data. On the hidden test, the final submission beats the baseline by 0.009. On 3,007 new examples from the same distribution, it beats it by only 0.002, and the confidence interval rules out 0.009. The change the agent credited most (a new action format) actually hurts a little on the new data.</p><p><strong>This is the link between the two kinds of evaluator.</strong> A fixed test that gives feedback becomes part of the loop. Then it loses its independence, just like a self-judge.</p><h3 id="en-s3-h3">Co-evolving evaluators: they stop telling right from wrong</h3><p id="en-sys-mae" class="sys sys-co"><strong>MAE</strong> is the second example from the opening. Its paper reports a 4.54% average gain across benchmarks. But its reporting pipeline has another problem: the answer extraction script frequently fails to extract the model's actual final answer (in 27–65% of cases). Despite this extraction failure, the external evaluator incorrectly judges 50–88% of these incomplete responses as correct. Once we let the judge see the full answer, none of the released checkpoints is significantly better than the starting model.</p><p id="en-sys-mass" class="sys sys-co"><strong><a href="https://arxiv.org/abs/2610.12176" target="_blank" rel="noopener">MASS</a></strong> uses one model as the worker, the workflow designer, and the evaluator. It reports that its win rate against the starting model rose from 53.9% to 69.9%. MASS released no checkpoints, so we could only audit the paper itself, and three things stand out. First, the "evaluator accuracy" it reports (0.73 to 0.93) measures agreement with outside LLM judges, not with the right answers. Second, on public benchmarks that do have right answers, the model doesn't improve; by the paper's own numbers it gets slightly worse (SWE-bench Verified 62.6 → 61.1, Terminal-Bench 2.0 37.5 → 35.2). Third, in the paper's own appendix, one run rewrote a robotics simulator so the task became trivial, and the outside judges still preferred it 5 times out of 6.</p><p id="en-sys-rzero" class="sys sys-co"><strong><a href="https://arxiv.org/abs/2508.05004" target="_blank" rel="noopener">R-Zero</a></strong> trains a model on answers it labels itself. For each generated question, the previous version of the model answers several times, and the majority answer becomes the label. A question is used for training only if the vote is neither too one-sided nor too split. We reproduced two rounds with the authors' code, then had two other models (Qwen3-8B and R1-Distill-Qwen-32B) answer 1,000 of each round's questions. On the questions actually used for training, the labels were right 84.5% of the time in round 1 and only 71.3% in round 2, a drop of 13.2 points (95% CI 6.6 to 20.1). The drop shows up at every level of vote agreement. On top of that, for 67% of round-2 training questions the two reference models couldn't agree on any answer at all, up from 40% in round 1. MATH accuracy still goes up (0.42 → 0.67 → 0.69), but almost all of that comes in round 1. The authors see the same limit: in the paper's own scaling test (Section 5.4), every model size eventually gets worse with more iterations, and the 4B model drops sharply at iteration 4. They doubt that label quality alone explains this. In either case, the loop's evaluator is the model itself: its errors become the next round's training labels, label quality declines over iterations, and nothing inside the loop can detect this decline.</p><h3 id="en-s3-h4">Hybrid evaluators: the anchor's ceiling stays</h3><p id="en-sys-evolm" class="sys sys-hybrid"><strong><a href="https://arxiv.org/abs/2605.03871" target="_blank" rel="noopener">EvoLM</a></strong> uses a co-evolving model to write grading rubrics and a frozen 1.7B judge to apply them. However, we found that the judge can't tell correct code from wrong code on HumanEval+: both score around 0.94 (AUC 0.49–0.56). Separately, when we reran the 11 benchmark tasks with the authors' own evaluation code, we found two problems. The starting model's scores were reported too low (MBPP+ 58.4 reported, 68.7 measured), and answers were extracted incorrectly on HumanEval+ and BBH. After fixing both, the reported +2.2 average gain shrinks to +0.4, and no single task keeps a significant gain. On the three tasks behind most of the claimed gain, before → after: MBPP+ 68.7 → 68.5, HumanEval+ 85.8 → 86.9, BBH 80.4 → 80.7.</p><h2 id="en-s4"><span class="secnum">4</span>What keeps going wrong</h2><p>Looking across the audits, the same few problems keep coming back. We give each one a short label (<span class="dc">D1–D7</span>) for the check that catches it. The appendix explains in a few lines how we computed each check; making them rigorous is our next step.</p><ul><li><strong>The evaluator can't tell good from bad (<span class="dc">D1–D3</span>).</strong> Given answers whose quality we know, it ranks them at close to chance level (<span class="dc">D1</span>), it can't tell good answers from better ones (<span class="dc">D2</span>), or it gives almost everything the same score (<span class="dc">D3</span>). We saw this in MAE, EvoLM, and AI Scientist v2's reviewer.</li><li><strong>It rewards the wrong thing (<span class="dc">D4</span>, <span class="dc">D7</span>).</strong> The loop finds something the evaluator scores highly but the task doesn't want, usually in a spot the tests don't look at. Think of DGM's shortcuts, molmo2's suppressed predictions, MASS's rewritten simulator, and autoresearch's budget-fitting edits.</li><li><strong>The loop's own score goes up, but an independent check doesn't (<span class="dc">D5</span>).</strong> MAE, MASS, EvoLM.</li><li><strong>The evaluator drifts as the model trains (<span class="dc">D6</span>).</strong> R-Zero's labels, and the self-judge in our own simulated loops (Section 5).</li><li><strong>The reported score is picked out of noise.</strong> This one isn't about the evaluator itself but about how its score is used. If you run many times on the same test and report the best run, the best looks better than it really is. autoresearch and OpenRSI both do this.</li></ul><p>These line up with the dilemma. Fixed evaluators fail by being gamed or by checking too little. Co-evolving evaluators fail by losing their ability to tell good from bad, and by drifting. Hybrids get both problems. And any evaluator whose score feeds back into the loop, even an outside one, can be picked over until its noise looks like progress.</p><p>Every one of these problems was found by a check outside the loop. In every case, the loop's own evaluator kept reporting progress. So how much progress we can confirm depends on how far those outside checks reach. Extending that reach is exactly what scalable oversight tries to do, and Sections 7 and 8 come back to it.</p><h2 id="en-s5"><span class="secnum">5</span>Why it happens: loops where we know the truth</h2><p>Published systems don't release enough to see the mechanism directly. So we built our own small loops, where we know the true quality of every answer.</p><p>Imagine a model iteratively improving its own general ability to answer questions: each round, it writes several answers, an evaluator picks the better ones, and it trains itself on its own winners. A separate reward model, hidden from the loop, tells us how good the answers really are. The only thing we change between loops is the evaluator. Models, data and training settings are in the appendix.</p><h3 id="en-s5-h5">A weaker evaluator means a lower plateau</h3><p>We took one reward model and made it "blind" above a certain quality level: below that level it scores normally, above it every answer looks the same. Then we moved that ceiling up and down and kept everything else fixed (1.5B model, 3 seeds).</p><figure class="fig chart" id="en-fig-4"><p class="chart-y">True quality reached (SD above the starting model)</p><div class="chart-box" data-chart="ceiling" data-lang="en" data-aria="True quality reached against the evaluator&#x27;s ceiling, with a band for no ceiling."></div><p class="chart-x">Evaluator&#x27;s ceiling (higher = can still tell better answers apart)</p><figcaption><span class="fig-n">Figure 4.</span> <strong>A weaker evaluator means a lower plateau.</strong> The same reward model, blinded above different quality levels. True quality is measured by a hidden reward model. 1.5B model, 3 seeds per point; bars are ±2 standard errors.</figcaption></figure><p>The lower the ceiling, the lower the model ends up. When we raised the ceiling in the middle of a run, progress started again, so the plateau comes from the evaluator, not from the model running out of room.</p><h3 id="en-s5-h6">Three kinds of evaluator, side by side</h3><p>Next we ran the three kinds of evaluator from Section 2 with Qwen2.5-7B (4 rounds, 2 seeds):</p><ul><li><strong>Fixed:</strong> the hidden reward model itself, but capped at the starting model's average, so it can't see anything better than that.</li><li><strong>Co-evolving:</strong> the model compares its own answers.</li><li><strong>Hybrid:</strong> half of each.</li></ul><p>The table checks each evaluator against the hidden reward model. <span class="dc">D1</span>: given two answers to the same prompt, how often it picks the better one (0.5 is chance). <span class="dc">D2</span>: the same, but only when both answers are above average. <span class="dc">D3</span>: the portion of answers that all get the same score. Figures cover rounds 1–4, averaged over 2 seeds.</p><div class="table-wrap"><table class="datatable"><thead><tr><th scope="col">Check</th><th scope="col">Fixed</th><th scope="col">Co-evolving</th><th scope="col">Hybrid</th></tr></thead><tbody><tr><td><span class="dc">D1</span></td><td class="num">0.75–0.87</td><td class="num">0.60–0.66</td><td class="num">0.73–0.81</td></tr><tr><td><span class="dc">D2</span></td><td class="num">0.50</td><td class="num">0.57–0.60</td><td class="num">0.56–0.60</td></tr><tr><td><span class="dc">D3</span></td><td class="num">0.52–0.72</td><td class="num">~0</td><td class="num">~0</td></tr></tbody></table></div><ul><li><strong>The fixed evaluator looks good overall but is blind at the top.</strong> It ranks answers best of the three, but once both answers are above its ceiling it is exactly at chance. And as the model improves, the reward distribution becomes increasingly saturated at the ceiling.</li><li><strong>The self-judge is weak from the start and always says things got better.</strong> In every round of both seeds, it prefers the new answers over round 1's (58–68% of the time). The true quality doesn't follow: by round 4, one seed is 0.26 better than round 1 and the other is 0.92 worse.</li><li><strong>The hybrid inherits the anchor's blind spot.</strong> Above the ceiling only the self-judge half can see, so it does no better there than the self-judge alone.</li></ul><figure class="fig chart" id="en-fig-5"><p class="chart-y">True quality (change from start, SD)</p><div class="chart-box" data-chart="belief" data-lang="en" data-aria="What each loop believes about its progress against its true quality."></div><p class="chart-x">How often the loop&#x27;s own evaluator prefers its newest answers (%)</p><figcaption><span class="fig-n">Figure 5.</span> <strong>What each loop believes about itself, against its true quality.</strong> The self-judging loop is the most confident, and the only one that ends below where it started. Qwen2.5-7B, 2 seeds; bars are ±2 standard errors.</figcaption></figure><p>In short, how much a loop thinks it improved has little to do with how much it really did. The self-judging loop is the most confident, and it's the only one that ends up worse than where it started.</p><p><strong>The self-judge also drifts (<span class="dc">D6</span>).</strong> We had each round's judge score the same fixed set of answers, so any change comes from the judge itself. Its accuracy drops every round, from 0.668 to 0.632 after four rounds. The judge is not biased toward the answers it wrote: judges from other rounds rate those answers about the same. Its ability to tell good answers from bad ones simply declines.</p><h3 id="en-s5-h7">Adding an anchor doesn't fix it by default</h3><p>"Check the self-judge against an outside anchor" covers many designs: how often the anchor checks in, and how much of the data it grades. We tried both (1.5B model, 2 seeds).</p><figure class="fig chart" id="en-fig-6"><p class="chart-y">True quality (change from start, SD)</p><p class="chart-legend">Anchor checks in every<span class="ln ln-r1"></span>1 round<span class="ln ln-r2"></span>2 rounds<span class="ln ln-r4"></span>4 rounds</p><div class="chart-box" data-chart="anchor" data-lang="en" data-aria="True quality against anchor coverage, one line per anchor frequency."></div><p class="chart-x">How much of the data the anchor grades</p><figcaption><span class="fig-n">Figure 6.</span> <strong>Adding an anchor does not fix things by default.</strong> True quality across anchor designs: how often the anchor checks in, and how much of the data it grades. With 10% coverage, every design ends below its start. 1.5B model, 2 seeds.</figcaption></figure><p>The same basic idea ends anywhere from +0.96 to −1.13 in true quality. When the anchor grades only 10% of the data, every setup ends worse than it started, and the sparsest one is no better than having no anchor at all. Across these ten setups, the more a loop believed it improved, the worse it tended to actually do (r = −0.58, p = 0.08).</p><p>These are the same failures we found in the audits: weak grading (<span class="dc">D1</span>, like MAE's and EvoLM's judges), progress the truth doesn't confirm (<span class="dc">D5</span>, like MAE and MASS), and drift (<span class="dc">D6</span>, like R-Zero). They also add one the audits couldn't test, because no system released the per-round data we'd need: blindness at the top (<span class="dc">D2</span>). Here we can check all of them against known answers, which also shows our checks measure what they're supposed to.</p><aside class="note"><span class="note-label">Caveat</span> One caveat. True quality per round varies a lot between our two seeds: the 95% CI across prompts is about ±0.1, but the two seeds can differ by up to 2 standard deviations in the same round. So we only report results that hold in both seeds.</aside><h2 id="en-s6"><span class="secnum">6</span>What an audit should check</h2><p>Our main point is simple: <strong>a self-improvement claim should count only if something that didn't steer the loop confirms it, and only as far as that check reaches.</strong> The steps below are what we did by hand for each system. They're a first sketch, not a finished protocol, and making each check rigorous and general is what we're working on next.</p><p>No audit can solve the dilemma. If an improvement is beyond what any outside check can see, no audit can confirm it. <strong>What an audit can do is make that limit visible, so it can't be ignored:</strong></p><ul><li>the check used to confirm a gain is one the loop never optimized against;</li><li>every claim states how large the gain is, what the independent check actually measured, and how uncertain the result is;</li><li>if the loop's own evaluator has stopped working, the audit should catch it, and hence the loop's self-reported gains should be disregarded.</li></ul><p>The four steps:</p><ol><li><strong>List every evaluator in the loop.</strong> What does it score? Does it share weights with the model? Can the model see its score? How strongly does the loop optimize for its score? This tells you which signals can still confirm anything, and which checks to run.</li><li><strong>Test each evaluator</strong> on examples whose quality you already know (<span class="dc">D1–D7</span>). What you can test depends on what's released: final weights are enough for <span class="dc">D1</span>, <span class="dc">D3</span>, <span class="dc">D4</span> and <span class="dc">D7</span>; per-round checkpoints or logs let you run all seven.</li><li><strong>Re-check the reported numbers.</strong> Use the same evaluation code for start and end, report paired confidence intervals, check the grader against the raw outputs, and re-test the best run on fresh data.</li><li><strong>Give a verdict.</strong> For example: holds; holds but overstated; doesn't reproduce; or the evaluator itself fails.</li></ol><p>We packaged these steps into a toolkit, <code>rsi-audit</code> (release pending). We plan to open-source it together with a registry that the community can add to: one card per RSI system, saying what it claims, which signal confirms it, which checks have been run, and the verdict. It can also work as a leaderboard, but one that ranks systems by how much of their claimed improvement holds up, not by how much they claim.</p><h3 id="en-s6-h8">Auditing a live loop</h3><p>The same checks can also run before a loop publishes an update, not just after the paper is out. <a href="https://github.com/Human-Agent-Society/reef" target="_blank" rel="noopener">Reef</a>, a recent open framework for self-improving agents, by default publishes whatever version the loop's own judge scores highest. Take the simplest example: on a prompt-optimization task (<a href="https://arxiv.org/abs/2507.19457" target="_blank" rel="noopener">GEPA</a>, Qwen2.5-7B, MATH-500), that default published prompts the judge rated close to 1.0 while strict accuracy dropped to 0. A gate that checks a held-out set with known answers blocked those versions and published the real improvement. But it could only confirm what its own held-out set measures, which is the ceiling side of the dilemma again.</p><h2 id="en-s7"><span class="secnum">7</span>Ways out</h2><p>None of this means useful self-improvement is impossible. A loop stays honest as long as information from outside keeps coming in. There are three main ways that can happen, and our audits show the limits of each.</p><h3 id="en-s7-h9">Generation–verification asymmetry</h3><p>A weaker evaluator can supervise a stronger model when checking an answer is much easier than producing it. That's the idea behind <a href="https://arxiv.org/abs/2407.13692" target="_blank" rel="noopener">prover–verifier games</a>, <a href="https://arxiv.org/abs/1805.00899" target="_blank" rel="noopener">debate</a>, critique, and other <a href="https://arxiv.org/abs/2211.03540" target="_blank" rel="noopener">scalable-oversight</a> methods: make the task easy for the evaluator to check, instead of making the evaluator as strong as the model.</p><p>When the score is exactly the goal, a fixed evaluator really can confirm progress. <a href="https://arxiv.org/abs/2604.01658" target="_blank" rel="noopener">CORAL</a>'s released Erdős construction and its 1,103-cycle kernel both held up when we checked them ourselves, because a math construction is its own proof, and a cycle count on a frozen simulator is the result.</p><p>But this way out has at least three limits. First, coverage: hand-built checks have gaps. Running DGM's tests is much cheaper than writing a fix, but 3 of 10 new passes still slipped through gaps in the tests. CORAL's agents didn't cheat, but its graders can be fooled too: they accepted two fake submissions we wrote, one claiming an Erdős bound 1e-4 better than its construction achieves, and one rewriting the simulator's cycle counter to claim 900 cycles. Both holes come from standard graders that CORAL reuses: OpenEvolve's Erdős evaluator and the test harness of Anthropic's kernel take-home. Second, many tasks don't have this asymmetry. Choosing a research direction or judging a new hypothesis is not easier to check than to do. Third, checking gets harder as outputs get longer and more complex, so the advantage can shrink as models get stronger.</p><h3 id="en-s7-h10">The real world as evaluator</h3><p>Running code, experiments, simulations and physical outcomes bring in evidence from outside the loop. But this only works when the results can be observed, arrive in time, and are hard to manipulate, and only as long as the loop isn't tuning on them. For example, autoresearch's validation loss and OpenRSI's hidden tests are real outside signals, but once they steer the loop, the best reported score partly reflects noise rather than real progress. In MASS, the agent simply rewrote the simulator.</p><h3 id="en-s7-h11">Consistency checks</h3><p>Self-consistency, majority voting and logical constraints can catch some errors without any labels. But being consistent is not the same as being right. In our R-Zero reproduction, the accuracy of the majority-vote training labels fell from 0.85 to 0.71 in a single round, and a loop can converge on a standard that is self-consistent but wrong.</p><h2 id="en-s8"><span class="secnum">8</span>Scalable oversight comes first</h2><p>Push the dilemma to its end and it points to a real limit on open-ended RSI. Picture a closed loop working on tasks beyond any outside judge. It writes its own tasks, trains its own solver, updates its own evaluator, and decides for itself whether each new version is better. If no outside information comes in, a rising internal score can't tell real progress from the loop drifting deeper into its own mistakes.</p><p>That doesn't make all self-improvement impossible. Within the reach of an independent check, gains can be confirmed, and our audits found some: DGM really did go from 2 to 9 fixed tasks, and autoresearch's edits hold up at 30 minutes and on new text. The hard part is going beyond that reach. Open-ended self-improvement that can be confirmed needs a source of ground truth that remains reliable as the model gets stronger. Where verification is easier than generation, scalable oversight can extend the evaluator's reach. Where the world gives observable feedback, the loop can get new evidence. Where neither holds, self-improvement may be impossible to verify, even in principle. And even today, the evaluators these systems rely on cover less than the claims they support: unit tests for "a better coding agent", a 5-minute loss for "a better model", 72 videos for a research task, and three human reviews for "passed peer review".</p><p>We usually think of scalable oversight as a safety tool for overseeing future AI systems that outperform humans. For recursive self-improvement, it may play <a href="https://arxiv.org/abs/2312.09390" target="_blank" rel="noopener">a more basic role</a>. <strong>Scalable oversight may not just be a safety add-on to RSI. It may also be what makes continued self-improvement possible to steer and to measure at all; this is what we call scalable supervision.</strong> And that may be one of the fundamental limits of open-ended recursive self-improvement.</p><p>What would help right now:</p><ul><li><strong>Release per-round checkpoints and evaluator logs</strong>, so others can measure drift and check whether the loop's score reflects actual performance.</li><li><strong>Report the quality of the loop's own evaluator</strong>: how well it tells good from bad on examples with known answers, and whether its scores saturate.</li><li><strong>Keep one test the loop never sees</strong>, and report how many times any visible test was used to select among versions.</li></ul><h2 id="en-appendix">Appendix: how we measured</h2><details class="appendix"><summary>Show the checks and the setup</summary><div class="appendix-body"><p>This is a working description, not a formal one. A rigorous version is our next step.</p><h3 id="en-appendix-h12">The checks</h3><p>Every check needs examples whose quality we know without asking the evaluator: code execution results, reference answers, human scores, or a hidden reward model the loop never sees.</p><ul><li><strong><span class="dc">D1</span>: telling good from bad.</strong> We report how well the evaluator's score separates correct from incorrect answers (AUC). Or, for two answers to the same prompt whose true quality differs by at least 0.25 standard deviations, how often it picks the better one. 0.5 means chance.</li><li><strong><span class="dc">D2</span>: telling good from better.</strong> <span class="dc">D1</span>, but only on pairs where both answers are already above the starting model's average. An evaluator with a ceiling can pass <span class="dc">D1</span> and still fail here.</li><li><strong><span class="dc">D3</span>: saturation.</strong> The portion of answers that get the evaluator's single most common score. Close to 1 means the score carries no information.</li><li><strong><span class="dc">D4</span>: rewarding the wrong thing.</strong> Behavior the evaluator rewards but the task doesn't want. We look at the top-scored outputs, and sometimes submit made-up ones on purpose (as we did with CORAL's graders).</li><li><strong><span class="dc">D5</span>: own score vs. truth.</strong> How much the loop's own score changed from start to end, compared with how much an independent measure changed, paired by example, with 95% bootstrap confidence intervals.</li><li><strong><span class="dc">D6</span>: drift and self-preference.</strong> We have each round's evaluator score the same fixed set of examples. Drift is how its <span class="dc">D1</span> changes across rounds. Self-preference is how much more it likes its own round's outputs than the other rounds' evaluators do, on the same pairs.</li><li><strong><span class="dc">D7</span>: what the tests don't cover.</strong> For outputs that pass the evaluator, we check behavior it doesn't check, for example by running a passing patch and the reference fix side by side in the task's container.</li><li><strong>Selection bias.</strong> Where we can, we re-test the chosen version on fresh data (e.g. molmoweb).</li></ul><h3 id="en-appendix-h13">Our loops (Section 5)</h3><ul><li><strong>Model:</strong> Qwen2.5-7B-Instruct for the three-evaluator comparison (4 rounds, 2 seeds); Qwen2.5-1.5B-Instruct for the ceiling test (Figure 4; 12 rounds, 3 seeds) and the anchor test (Figure 6; 6 rounds, 2 seeds). All trained with iterated DPO on a LoRA adapter (rank 32, β = 0.1).</li><li><strong>Prompts:</strong> 1,500 training and 300 held-out open-ended instructions (Dolly-15k, AlpacaEval); 4 answers per prompt per round.</li><li><strong>Truth:</strong> a hidden reward model (Skywork-Reward-V2-Qwen3-8B) the loop never sees, measured in units of the starting model's per-prompt standard deviation.</li><li><strong>Evaluators:</strong> fixed = the same reward model, capped at the starting model's average; co-evolving = the model comparing its own answers in pairs; hybrid = the mean of the two scores, each z-scored within its prompt.</li></ul><h3 id="en-appendix-h14">The audits (Section 3)</h3><p>For each system, the registry card lists what we re-ran, every number, and where our setup differs from the paper's (for example, an open-weight model in place of a closed one).</p></div></details><h2 id="en-refs">References</h2><div class="refs"><p><strong>Audited systems</strong></p><ul><li><a href="https://arxiv.org/abs/2505.22954" target="_blank" rel="noopener">Darwin Gödel Machine: Open-Ended Evolution of Self-Improving Agents</a> (DGM)</li><li><a href="https://arxiv.org/abs/2504.08066" target="_blank" rel="noopener">The AI Scientist-v2: Workshop-Level Automated Scientific Discovery via Agentic Tree Search</a></li><li><a href="https://github.com/karpathy/autoresearch" target="_blank" rel="noopener">autoresearch</a> (Karpathy)</li><li><a href="https://github.com/OpenRSI-Foundation/OpenRSI-Index" target="_blank" rel="noopener">OpenRSI Index</a></li><li><a href="https://arxiv.org/abs/2510.23595" target="_blank" rel="noopener">Multi-Agent Evolve: LLM Self-Improve through Co-evolution</a> (MAE)</li><li><a href="https://arxiv.org/abs/2610.12176" target="_blank" rel="noopener">Recursive Self-Improvement through Multi-Agent Self-Supervision</a> (MASS)</li><li><a href="https://arxiv.org/abs/2508.05004" target="_blank" rel="noopener">R-Zero: Self-Evolving Reasoning LLM from Zero Data</a></li><li><a href="https://arxiv.org/abs/2605.03871" target="_blank" rel="noopener">EvoLM: Self-Evolving Language Models through Co-Evolved Discriminative Rubrics</a></li><li><a href="https://arxiv.org/abs/2608.07645" target="_blank" rel="noopener">Mendel Gödel Machine: Recursive Self-Improving Coding Agents via Comparative Evolution</a></li></ul><p><strong>Frameworks and methods</strong></p><ul><li><a href="https://github.com/Human-Agent-Society/reef" target="_blank" rel="noopener">Reef</a>, an open framework for self-improving agents</li><li><a href="https://arxiv.org/abs/2507.19457" target="_blank" rel="noopener">GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning</a></li><li><a href="https://arxiv.org/abs/2604.01658" target="_blank" rel="noopener">CORAL: Towards Autonomous Multi-Agent Evolution for Open-Ended Discovery</a> (we checked its released Erdős and kernel solutions)</li></ul><p><strong>Related work</strong></p><ul><li><a href="https://arxiv.org/abs/1606.06565" target="_blank" rel="noopener">Concrete Problems in AI Safety</a> (reward hacking)</li><li><a href="https://arxiv.org/abs/2210.10760" target="_blank" rel="noopener">Scaling Laws for Reward Model Overoptimization</a></li><li><a href="https://arxiv.org/abs/1805.00899" target="_blank" rel="noopener">AI Safety via Debate</a></li><li><a href="https://arxiv.org/abs/2211.03540" target="_blank" rel="noopener">Measuring Progress on Scalable Oversight for Large Language Models</a></li><li><a href="https://arxiv.org/abs/2407.13692" target="_blank" rel="noopener">Prover-Verifier Games Improve Legibility of LLM Outputs</a></li><li><a href="https://arxiv.org/abs/2312.09390" target="_blank" rel="noopener">Weak-to-Strong Generalization</a></li><li><a href="https://arxiv.org/abs/2607.12790" target="_blank" rel="noopener">Who Grades the Grader? Co-Evolving Evaluation Metrics and Skills for Self-Improving LLM Agents</a></li><li><a href="https://arxiv.org/abs/2412.03597" target="_blank" rel="noopener">The Vulnerability of Language Model Benchmarks: Do They Accurately Reflect True LLM Performance?</a> (benchmark hacking)</li><li><a href="https://arxiv.org/abs/2407.12220" target="_blank" rel="noopener">Questionable Practices in Machine Learning</a></li><li><a href="https://arxiv.org/abs/2504.20879" target="_blank" rel="noopener">The Leaderboard Illusion</a></li><li><a href="https://arxiv.org/abs/1502.04585" target="_blank" rel="noopener">The Ladder: A Reliable Leaderboard for Machine Learning Competitions</a></li></ul><p><strong>Our materials</strong></p><ul><li><a href="https://liuyanchen1015.github.io/evaluator-dilemma/registry/" target="_blank" rel="noopener">RSI Audit Registry</a>: one audit card per system</li></ul></div><section class="cite" aria-labelledby="en-cite"><h2 id="en-cite">Citation</h2>
+<div class="bib"><pre id="en-bib">@misc{liu2026evaluatordilemma,
+  title  = {The Evaluator Dilemma: Does Recursive Self-Improvement Really Improve?},
+  author = {Liu, Yanchen},
+  year   = {2026},
+  note   = {Blog post}
+}</pre><button type="button" class="btn-quiet copy" data-copy="en-bib" data-done="Copied">Copy BibTeX</button></div></section></article>
+</div></div>
+
+<script>
+(function () {
+  "use strict";
+  var DATA = {"bon": {"en": {"n": "Submissions N", "redraw": "Draw again", "left": "N submissions of a system that isn't getting better", "right": "Fake gain from keeping the best, in units of test noise", "true": "true score", "best": "best", "first": "first", "readout": "First submission {f} · best of {n}: {b} · real change: 0", "now": "With {n} submissions and nothing improved, keeping the best still “gains” {g} units on average", "xaxis": "submissions N", "yaxis": "gain, in units of test noise", "xstrip": "score minus true score, in units of test noise", "exp": "average", "q95": "95% of runs stay below this line, 5% land above it", "aria_strip": "Dot plot of N noisy scores of an unchanged system, with the best one marked.", "aria_curve": "Line chart of the expected best-of-N gain against N.", "head": "Picking the best of N when nothing improved.", "body": "Left: each dot is one submission to a small test from a system that isn't getting better, so the scores differ only by noise. The best one still lands above the true score, and the gap grows with N. Right: how big that fake gain gets as N grows. The solid line is the average, and only 5% of runs land above the dashed line. This shows the general effect when submissions are independent. It isn't a measurement of any task: real submissions share one test and resemble each other, so their fake gain is smaller."}, "zh": {"n": "提交次数 N", "redraw": "重新抽样", "left": "一个没有真正变好的系统，提交 N 次", "right": "保留最好一次带来的虚假提升（单位：测试噪声）", "true": "真实分数", "best": "最好", "first": "第一次", "readout": "第一次提交 {f} · {n} 次中最好 {b} · 实际变化 0", "now": "提交 {n} 次、什么都没改进时，保留最好一次平均也能“提升” {g} 个单位", "xaxis": "提交次数 N", "yaxis": "提升（单位：测试噪声）", "xstrip": "分数减去真实分数（单位：测试噪声）", "exp": "平均值", "q95": "95% 的运行低于此线，5% 高于它", "aria_strip": "点图：一个没有变化的系统的 N 个带噪声分数，标出最好的一个。", "aria_curve": "折线图：从 N 次中挑最好时的期望提升随 N 的变化。", "head": "什么都没改进时，从 N 次里挑最好。", "body": "左：每个点是一个没有真正变好的系统在小规模测试集上的一次提交，分数的差异只来自噪声。最好的那次仍然高于真实分数，而且 N 越大，差距越大。右：这种虚假提升随 N 增长的幅度。实线是平均值，只有 5% 的运行高于虚线。这里展示的是各次提交相互独立时的一般规律，不是对某个任务的测量：真实的提交共用一份测试、彼此相近，虚假提升会更小。"}}, "charts": {"en": {"space": {"x": "Independence from the model →", "y": "↑ Keeps up with the model", "low": "low", "high": "high", "co": ["Co-evolving", "keeps pace,", "no independent reference"], "hy": ["Anchored co-evolution", "reaches toward the corner,", "stops at the anchor"], "fx": ["Fixed", "grounded,", "but bounded"], "ideal": ["Ideal", "keeps up and", "independently grounded"]}, "ceiling": {"y": "True quality reached (SD above the starting model)", "x": "Evaluator's ceiling (higher = can still tell better answers apart)", "band": "No ceiling: the full reward model", "fit": "linear fit"}, "belief": {"y": "True quality (change from start, SD)", "x": "How often the loop's own evaluator prefers its newest answers (%)", "fixed": "External anchor", "hybrid": "Anchor + self-judge", "co": "Self-judge only", "co_sub": "most confident", "start": "where it started", "nochange": "believes nothing changed"}, "anchor": {"y": "True quality (change from start, SD)", "x": "How much of the data the anchor grades", "legend": "Anchor checks in every", "r1": "1 round", "r2": "2 rounds", "r4": "4 rounds", "none": "no anchor at all", "start": "where it started"}}, "zh": {"space": {"x": "独立于模型的程度 →", "y": "↑ 跟上模型进步的能力", "low": "低", "high": "高", "co": ["Co-evolving", "能跟上，", "但没有独立参照"], "hy": ["Anchored co-evolution", "向右上角靠近，", "但止步于 anchor"], "fx": ["Fixed", "有依据，", "但有上限"], "ideal": ["理想", "既能跟上，", "又有独立依据"]}, "ceiling": {"y": "最终达到的真实质量（相对起始模型，SD）", "x": "Evaluator 的上限（越高，越能分辨更好的答案）", "band": "无上限：完整的 reward model", "fit": "线性拟合"}, "belief": {"y": "真实质量（相对起点，SD）", "x": "循环自身的 evaluator 偏好最新答案的比例（%）", "fixed": "外部 anchor", "hybrid": "anchor + 自评", "co": "仅自评", "co_sub": "最自信", "start": "起点", "nochange": "认为没有变化"}, "anchor": {"y": "真实质量（相对起点，SD）", "x": "anchor 评分的数据比例", "legend": "anchor 校验频率：每", "r1": "1 轮", "r2": "2 轮", "r4": "4 轮", "none": "完全没有 anchor", "start": "起点"}}}, "fig": {"ceiling": {"points": [{"tau": -0.5, "mean": 0.8093591531117758, "se": 0.053792736704509764, "seeds": 3}, {"tau": 0.0, "mean": 0.9916685223579407, "se": 0.020971963219503204, "seeds": 3}, {"tau": 0.5, "mean": 1.1469349728690252, "se": 0.05800808206910851, "seeds": 3}, {"tau": 1.0, "mean": 1.2464482121997411, "se": 0.04712026549355546, "seeds": 3}, {"tau": 1.5, "mean": 1.5964268975787694, "se": 0.06869291783861128, "seeds": 3}, {"tau": 2.0, "mean": 1.6634159353044298, "se": 0.03490754983077585, "seeds": 3}], "no_ceiling": {"mean": 1.571061372756958, "se": 0.11897688427295841, "seeds": 3}, "fit": {"slope": 0.36578303575515725, "intercept": 0.975276033745872}}, "belief": [{"cond": "clampt007bL", "kind": "fixed", "believed": 50.157665953987674, "believed_se": 2.5544264189874544, "truth": 0.2341537158936262, "truth_se": 0.35657777078449726, "seeds": 2}, {"cond": "hybrid7bL", "kind": "hybrid", "believed": 57.63875430003102, "believed_se": 2.200738746412134, "truth": 0.4281865507364273, "truth_se": 0.10597985982894897, "seeds": 2}, {"cond": "coevolve7bL", "kind": "co", "believed": 59.425636698835206, "believed_se": 0.8523392286604203, "truth": -0.3249888904392719, "truth_se": 0.4545731954276562, "seeds": 2}], "anchor": [{"refresh": null, "coverage": 0.0, "quality": -1.1270244270563126, "seeds": 2}, {"refresh": 1, "coverage": 0.1, "quality": -0.31627522595226765, "seeds": 2}, {"refresh": 1, "coverage": 0.5, "quality": 0.7565477639436722, "seeds": 2}, {"refresh": 1, "coverage": 1.0, "quality": 0.9621224850416183, "seeds": 2}, {"refresh": 2, "coverage": 0.1, "quality": -0.797186091542244, "seeds": 2}, {"refresh": 2, "coverage": 0.5, "quality": 0.5411762222647667, "seeds": 2}, {"refresh": 2, "coverage": 1.0, "quality": 0.919046089053154, "seeds": 2}, {"refresh": 4, "coverage": 0.1, "quality": -1.11827252805233, "seeds": 2}, {"refresh": 4, "coverage": 0.5, "quality": -0.3236096426844597, "seeds": 2}, {"refresh": 4, "coverage": 1.0, "quality": 0.521191380918026, "seeds": 2}]}};
+  var KEY = "evaluator-dilemma-lang";
+  var current = "en";
+  var NS = "http://www.w3.org/2000/svg";
+
+  /* ---------- language ---------- */
+  function setLang(lang, save) {
+    current = lang;
+    document.querySelectorAll("[data-lang-block]").forEach(function (el) { el.hidden = el.getAttribute("data-lang-block") !== lang; });
+    document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+    document.querySelectorAll("[data-set-lang]").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-set-lang") === lang));
+    });
+    document.getElementById("brand").textContent = lang === "zh" ? "Evaluator Dilemma" : "The Evaluator Dilemma";
+    if (save) { try { localStorage.setItem(KEY, lang); } catch (e) {} }
+    observeHeadings();
+  }
+  document.querySelectorAll("[data-set-lang]").forEach(function (b) {
+    b.addEventListener("click", function () { setLang(b.getAttribute("data-set-lang"), true); window.scrollTo(0, 0); });
+  });
+
+  /* ---------- contents: highlight the section being read ---------- */
+  var observer = null;
+  function observeHeadings() {
+    if (!("IntersectionObserver" in window)) return;
+    if (observer) observer.disconnect();
+    var art = document.querySelector('.post[data-lang-block="' + current + '"]');
+    var links = {};
+    document.querySelectorAll('.toc[data-lang-block="' + current + '"] a[data-target]').forEach(function (a) { links[a.getAttribute("data-target")] = a; });
+    observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        Object.keys(links).forEach(function (k) { links[k].classList.toggle("active", k === en.target.id); });
+      });
+    }, { rootMargin: "-15% 0px -75% 0px" });
+    art.querySelectorAll("h2[id]").forEach(function (h) { observer.observe(h); });
+  }
+
+  /* ---------- summary table rows jump to the write-up ---------- */
+  document.querySelectorAll(".systable tr[data-target]").forEach(function (tr) {
+    tr.addEventListener("click", function (ev) {
+      if (ev.target.closest("a")) return;
+      var el = document.getElementById(tr.getAttribute("data-target"));
+      if (!el) return;
+      el.scrollIntoView({ block: "center" });
+      el.classList.add("flash");
+      setTimeout(function () { el.classList.remove("flash"); }, 1400);
+    });
+  });
+
+  /* ---------- copy BibTeX ---------- */
+  document.querySelectorAll("button.copy").forEach(function (btn) {
+    var label = btn.textContent;
+    btn.addEventListener("click", function () {
+      var pre = document.getElementById(btn.getAttribute("data-copy"));
+      var done = function () { btn.textContent = btn.getAttribute("data-done"); setTimeout(function () { btn.textContent = label; }, 1600); };
+      var fallback = function () { var r = document.createRange(); r.selectNodeContents(pre); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); };
+      try { navigator.clipboard.writeText(pre.textContent).then(done, fallback); } catch (e) { fallback(); }
+    });
+  });
+
+  /* ---------- chart helpers ---------- */
+  function el(tag, attrs, parent, text) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function lin(d0, d1, r0, r1) { return function (v) { return r0 + (v - d0) / (d1 - d0) * (r1 - r0); }; }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function num(v, d) { return (v < 0 ? "−" : "") + Math.abs(v).toFixed(d); }
+  function sgn(v, d) { return (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(d); }
+  /* draws into a box at its real width, again whenever that width changes (and when a hidden language appears) */
+  function mount(box, spec) {
+    var svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", box.getAttribute("data-aria") || "");
+    box.appendChild(svg);
+    var last = -1;
+    function render(force) {
+      var w = Math.floor(box.clientWidth);
+      if (!w || (w === last && !force)) return;
+      last = w;
+      var h = Math.round(spec.height(w));
+      svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+      svg.setAttribute("width", w);
+      svg.setAttribute("height", h);
+      svg.textContent = "";
+      spec.draw(svg, w, h);
+    }
+    if ("ResizeObserver" in window) new ResizeObserver(function () { render(false); }).observe(box);
+    else window.addEventListener("resize", function () { render(false); });
+    render(false);
+    box.__redraw = function () { render(true); };
+    return box.__redraw;
+  }
+  function yGrid(svg, Y, ticks, x0, x1, d, zero) {
+    ticks.forEach(function (t) {
+      el("line", { x1: x0, x2: x1, y1: Y(t), y2: Y(t), "class": t === zero ? "ax" : "grid" }, svg);
+      el("text", { x: x0 - 6, y: Y(t) + 4, "text-anchor": "end", "class": "tick" }, svg, num(t, d));
+    });
+  }
+  function xTicks(svg, X, ticks, y, fmt) {
+    ticks.forEach(function (t) { el("text", { x: X(t), y: y, "text-anchor": "middle", "class": "tick" }, svg, fmt(t)); });
+  }
+  function errbar(svg, x1, y1, x2, y2, cls) {
+    el("line", { x1: x1, y1: y1, x2: x2, y2: y2, "class": "err " + cls }, svg);
+    if (x1 === x2) {
+      el("line", { x1: x1 - 4, x2: x1 + 4, y1: y1, y2: y1, "class": "err " + cls }, svg);
+      el("line", { x1: x1 - 4, x2: x1 + 4, y1: y2, y2: y2, "class": "err " + cls }, svg);
+    } else {
+      el("line", { x1: x1, x2: x1, y1: y1 - 4, y2: y1 + 4, "class": "err " + cls }, svg);
+      el("line", { x1: x2, x2: x2, y1: y2 - 4, y2: y2 + 4, "class": "err " + cls }, svg);
+    }
+  }
+  function lines(svg, x, y, texts, cls, anchor, step) {
+    texts.forEach(function (t, i) { el("text", { x: x, y: y + i * (step || 15), "text-anchor": anchor || "start", "class": i === 0 ? cls : "lbl" }, svg, t); });
+  }
+
+  /* ---------- figure: design space ---------- */
+  function drawSpace(svg, w, h, S) {
+    var m = { l: 48, r: 10, t: 34, b: 36 };
+    var X = lin(0, 1, m.l, w - m.r), Y = lin(0, 1, h - m.b, m.t), narrow = w < 560;
+    el("line", { x1: X(0), y1: Y(0), x2: X(1), y2: Y(0), "class": "ax" }, svg);
+    el("line", { x1: X(0), y1: Y(0), x2: X(0), y2: Y(1), "class": "ax" }, svg);
+    el("path", { d: "M" + X(1) + "," + Y(0) + " l-7,-4 l0,8 z", "class": "head-ax" }, svg);
+    el("path", { d: "M" + X(0) + "," + Y(1) + " l-4,7 l8,0 z", "class": "head-ax" }, svg);
+    el("text", { x: X(0) + 8, y: m.t - 12, "class": "lbl" }, svg, S.y);
+    el("text", { x: X(0) - 6, y: Y(0.97) + 4, "text-anchor": "end", "class": "tick" }, svg, S.high);
+    el("text", { x: X(0) - 6, y: Y(0.03) + 4, "text-anchor": "end", "class": "tick" }, svg, S.low);
+    el("text", { x: X(0.02), y: h - 8, "class": "tick" }, svg, S.low);
+    el("text", { x: X(0.98), y: h - 8, "text-anchor": "end", "class": "tick" }, svg, S.high);
+    el("text", { x: X(0.5), y: h - 8, "text-anchor": "middle", "class": "lbl" }, svg, S.x);
+    var cx = X(0.8), cy = Y(0.8), rx = Math.max((w - m.l - m.r) * 0.21, 70), ry = Math.max((h - m.t - m.b) * 0.21, 48);
+    cx = Math.min(cx, w - m.r - rx - 2);
+    el("ellipse", { cx: cx, cy: cy, rx: rx, ry: ry, "class": "ideal" }, svg);
+    lines(svg, cx, cy - (narrow ? 0 : 14), narrow ? [S.ideal[0]] : S.ideal, "lbl-b", "middle", 20);
+    var pts = [["co", 0.13, 0.84, "start"], ["hybrid", 0.46, 0.42, "end"], ["fixed", 0.87, 0.16, "end"]];
+    var key = { co: "co", hybrid: "hy", fixed: "fx" };
+    pts.forEach(function (p) {
+      var px = X(p[1]), py = Y(p[2]), t = S[key[p[0]]];
+      el("circle", { cx: px, cy: py, r: 11.5, "class": "c-" + p[0] }, svg);
+      var dx = p[3] === "start" ? 19 : -19;
+      lines(svg, px + dx, py + 5, narrow ? [t[0]] : t, "t-" + p[0], p[3], 20);
+    });
+    var ax = X(0.5), ay = Y(0.47), bx = cx - rx * 0.78, by = cy + ry * 0.66;
+    el("line", { x1: ax, y1: ay, x2: bx, y2: by, "class": "arrow-hy" }, svg);
+    var ang = Math.atan2(by - ay, bx - ax) * 180 / Math.PI;
+    el("path", { d: "M0,0 l-8,-4.5 l0,9 z", "class": "head-hy", transform: "translate(" + bx + "," + by + ") rotate(" + ang + ")" }, svg);
+  }
+
+  /* ---------- figure: ceiling ---------- */
+  function drawCeiling(svg, w, h, S) {
+    var F = DATA.fig.ceiling, m = { l: 46, r: 10, t: 8, b: 28 };
+    var X = lin(-0.75, 2.3, m.l, w - m.r), Y = lin(0.5, 2.0, h - m.b, m.t);
+    yGrid(svg, Y, [0.5, 1, 1.5, 2], m.l, w - m.r, 1, 0.5);
+    xTicks(svg, X, [-0.5, 0, 0.5, 1, 1.5, 2], h - 6, function (t) { return num(t, 1); });
+    var nc = F.no_ceiling;
+    el("rect", { x: X(-0.75), y: Y(nc.mean + 2 * nc.se), width: X(2.3) - X(-0.75), height: Y(nc.mean - 2 * nc.se) - Y(nc.mean + 2 * nc.se), "class": "band" }, svg);
+    el("line", { x1: X(-0.75), x2: X(2.3), y1: Y(nc.mean), y2: Y(nc.mean), "class": "ref-dash" }, svg);
+    el("text", { x: X(-0.75) + 8, y: Y(nc.mean + 2 * nc.se) + 15, "class": "lbl" }, svg, S.band);
+    var f = F.fit;
+    el("line", { x1: X(-0.6), y1: Y(f.intercept - 0.6 * f.slope), x2: X(1.7), y2: Y(f.intercept + 1.7 * f.slope), "class": "fit" }, svg);
+    F.points.forEach(function (p) {
+      errbar(svg, X(p.tau), Y(p.mean - 2 * p.se), X(p.tau), Y(p.mean + 2 * p.se), "c-fixed");
+      el("circle", { cx: X(p.tau), cy: Y(p.mean), r: 7, "class": "c-fixed" }, svg);
+    });
+  }
+
+  /* ---------- figure: belief vs truth ---------- */
+  function drawBelief(svg, w, h, S) {
+    var m = { l: 46, r: 10, t: 8, b: 28 };
+    var X = lin(44, 68, m.l, w - m.r), Y = lin(-1.35, 1.25, h - m.b, m.t);
+    yGrid(svg, Y, [-1, -0.5, 0, 0.5, 1], m.l, w - m.r, 1, 0);
+    xTicks(svg, X, [45, 50, 55, 60, 65], h - 6, function (t) { return String(t); });
+    el("line", { x1: X(50), x2: X(50), y1: Y(-1.33), y2: Y(1.22), "class": "ref-dash" }, svg);
+    el("text", { x: X(50) + 6, y: Y(-1.33) - 3, "class": "lbl" }, svg, S.nochange);
+    el("text", { x: X(44) + 6, y: Y(0) - 6, "class": "lbl" }, svg, S.start);
+    var pos = { fixed: [51.0, 0.80], hybrid: [58.6, 0.64], co: [61.0, -0.62] };
+    DATA.fig.belief.forEach(function (b) {
+      var c = "c-" + b.kind;
+      errbar(svg, X(b.believed - 2 * b.believed_se), Y(b.truth), X(b.believed + 2 * b.believed_se), Y(b.truth), c);
+      errbar(svg, X(b.believed), Y(b.truth - 2 * b.truth_se), X(b.believed), Y(b.truth + 2 * b.truth_se), c);
+      el("circle", { cx: X(b.believed), cy: Y(b.truth), r: 8, "class": c }, svg);
+      var p = pos[b.kind], t = [S[b.kind]];
+      if (b.kind === "co") t.push(S.co_sub);
+      lines(svg, X(p[0]), Y(p[1]), t, "t-" + b.kind, "start", 18);
+    });
+  }
+
+  /* ---------- figure: anchor designs ---------- */
+  function drawAnchor(svg, w, h, S) {
+    var m = { l: 46, r: 12, t: 8, b: 28 };
+    var X = lin(0, 110, m.l, w - m.r), Y = lin(-1.4, 1.2, h - m.b, m.t);
+    yGrid(svg, Y, [-1, -0.5, 0, 0.5, 1], m.l, w - m.r, 1, 0);
+    xTicks(svg, X, [10, 50, 100], h - 6, function (t) { return t + "%"; });
+    el("text", { x: X(0) + 6, y: Y(0) - 6, "class": "lbl" }, svg, S.start);
+    var A = DATA.fig.anchor, none = A.filter(function (a) { return a.refresh === null; })[0];
+    el("line", { x1: X(0), x2: X(110), y1: Y(none.quality), y2: Y(none.quality), "class": "none-dash" }, svg);
+    el("text", { x: X(110), y: Y(none.quality) + 17, "text-anchor": "end", "class": "t-co" }, svg, S.none);
+    [4, 2, 1].forEach(function (R) {
+      var sel = A.filter(function (a) { return a.refresh === R; }).sort(function (a, b) { return a.coverage - b.coverage; });
+      el("path", { d: sel.map(function (a, i) { return (i ? "L" : "M") + X(100 * a.coverage) + "," + Y(a.quality); }).join(""), "class": "line-r" + R }, svg);
+      sel.forEach(function (a) { el("circle", { cx: X(100 * a.coverage), cy: Y(a.quality), r: 6, "class": "dot-r" + R }, svg); });
+    });
+  }
+
+  var DRAW = {
+    space: { height: function (w) { return clamp(w * 0.62, 310, 450); }, draw: drawSpace },
+    ceiling: { height: function (w) { return clamp(w * 0.5, 240, 360); }, draw: drawCeiling },
+    belief: { height: function (w) { return clamp(w * 0.54, 270, 390); }, draw: drawBelief },
+    anchor: { height: function (w) { return clamp(w * 0.5, 240, 360); }, draw: drawAnchor },
+  };
+  document.querySelectorAll(".chart-box[data-chart]").forEach(function (box) {
+    var kind = box.getAttribute("data-chart"), S = DATA.charts[box.getAttribute("data-lang")][kind], d = DRAW[kind];
+    mount(box, { height: d.height, draw: function (svg, w, h) { d.draw(svg, w, h, S); } });
+  });
+
+  /* ---------- best-of-N widget ---------- */
+  function erf(x) {
+    var s = x < 0 ? -1 : 1; x = Math.abs(x);
+    var t = 1 / (1 + 0.3275911 * x);
+    var y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+    return s * y;
+  }
+  function Phi(x) { return 0.5 * (1 + erf(x / Math.SQRT2)); }
+  function phi(x) { return Math.exp(-x * x / 2) / Math.sqrt(2 * Math.PI); }
+  /* gain = best of N minus the first score: P(gain <= q) integrates phi(x) Phi(x + q)^(N - 1) */
+  function gainCdf(q, N) { var acc = 0; for (var x = -7; x <= 7; x += 0.05) acc += phi(x) * Math.pow(Phi(x + q), N - 1) * 0.05; return acc; }
+  function gainQ95(N) { var lo = 0, hi = 9; for (var i = 0; i < 22; i++) { var mid = (lo + hi) / 2; if (gainCdf(mid, N) < 0.95) lo = mid; else hi = mid; } return (lo + hi) / 2; }
+  /* expected best of N standard normals, and the gain only 5% of such runs exceed */
+  var NMAX = 80, EMAX = [0], Q95 = [0];
+  for (var N = 1; N <= NMAX; N++) {
+    var acc = 0;
+    for (var x = -8; x <= 8; x += 0.01) acc += x * N * phi(x) * Math.pow(Phi(x), N - 1) * 0.01;
+    EMAX[N] = acc;
+    Q95[N] = gainQ95(N);
+  }
+  function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function normals(seed, n) {
+    var r = rng(seed), out = [];
+    while (out.length < n) {
+      var u = Math.max(r(), 1e-12), v = r(), mm = Math.sqrt(-2 * Math.log(u));
+      out.push(mm * Math.cos(2 * Math.PI * v)); out.push(mm * Math.sin(2 * Math.PI * v));
+    }
+    return out.slice(0, n);
+  }
+
+  function drawStrip(svg, w, h, scores, S) {
+    var m = { l: 12, r: 12, t: 26, b: 26 };
+    var X = lin(-3.2, 3.8, m.l, w - m.r), base = h - m.b;
+    el("line", { x1: m.l, x2: w - m.r, y1: base, y2: base, "class": "ax" }, svg);
+    [-3, -2, -1, 0, 1, 2, 3].forEach(function (t) {
+      el("line", { x1: X(t), x2: X(t), y1: base, y2: base + 4, "class": "ax" }, svg);
+      el("text", { x: X(t), y: h - 4, "text-anchor": "middle", "class": "tick" }, svg, t === 0 ? "0" : sgn(t, 0));
+    });
+    el("line", { x1: X(0), x2: X(0), y1: m.t - 6, y2: base, "class": "truth" }, svg);
+    el("text", { x: X(0) - 6, y: m.t - 10, "text-anchor": "end", "class": "lbl" }, svg, S["true"]);
+    var best = 0;
+    scores.forEach(function (v, i) { if (v > scores[best]) best = i; });
+    var r = rng(7), yb = m.t + 14, yf = base - 30;
+    scores.forEach(function (v, i) {
+      var y = m.t + 26 + r() * (base - m.t - 64);
+      if (i !== 0 && i !== best) el("circle", { cx: X(v), cy: y, r: scores.length > 40 ? 3.2 : 3.8, "class": "noise" }, svg);
+    });
+    el("circle", { cx: X(scores[0]), cy: yf, r: 5.5, "class": "first" }, svg);
+    el("text", { x: X(scores[0]), y: yf + 20, "text-anchor": "middle", "class": "lbl" }, svg, S.first);
+    if (best !== 0) {
+      el("circle", { cx: X(scores[best]), cy: yb, r: 6, "class": "best" }, svg);
+      var right = X(scores[best]) > w - 90;
+      el("text", { x: X(scores[best]) + (right ? -11 : 11), y: yb + 4.5, "text-anchor": right ? "end" : "start", "class": "lbl-b" }, svg, S.best + " " + sgn(scores[best], 2));
+    }
+    return { first: scores[0], best: scores[best] };
+  }
+
+  function drawCurve(svg, w, h, N, S) {
+    var m = { l: 30, r: 10, t: 10, b: 26 };
+    var X = lin(1, NMAX, m.l, w - m.r), Y = lin(0, 4.6, h - m.b, m.t);
+    yGrid(svg, Y, [0, 1, 2, 3, 4], m.l, w - m.r, 0, 0);
+    xTicks(svg, X, [1, 20, 40, 60, 80], h - 4, function (t) { return String(t); });
+    var d = "", q = "", band = "";
+    for (var n = 1; n <= NMAX; n++) {
+      d += (n === 1 ? "M" : "L") + X(n).toFixed(1) + "," + Y(EMAX[n]).toFixed(1);
+      q += (n === 1 ? "M" : "L") + X(n).toFixed(1) + "," + Y(Q95[n]).toFixed(1);
+    }
+    for (n = NMAX; n >= 1; n--) band += "L" + X(n).toFixed(1) + "," + Y(EMAX[n]).toFixed(1);
+    el("path", { d: q + band + "z", "class": "q95-band" }, svg);
+    el("line", { x1: X(N), x2: X(N), y1: m.t, y2: h - m.b, "class": "guide" }, svg);
+    el("path", { d: q, "class": "q95" }, svg);
+    el("path", { d: d, "class": "curve" }, svg);
+    el("circle", { cx: X(N), cy: Y(EMAX[N]), r: 5, "class": "best" }, svg);
+  }
+
+  document.querySelectorAll("[data-bon]").forEach(function (fig) {
+    var lang = fig.getAttribute("data-bon"), S = DATA.bon[lang];
+    var input = fig.querySelector('input[type="range"]'), out = fig.querySelector("output");
+    var readouts = fig.querySelectorAll(".bon-readout");
+    var seed = 20261025;
+    var redrawStrip = mount(fig.querySelector(".bon-strip"), {
+      height: function () { return 170; },
+      draw: function (svg, w, h) {
+        var n = Number(input.value), res = drawStrip(svg, w, h, normals(seed, n), S);
+        readouts[0].textContent = S.readout.replace("{f}", sgn(res.first, 2)).replace("{b}", sgn(res.best, 2)).replace("{n}", String(n));
+      }
+    });
+    var redrawCurve = mount(fig.querySelector(".bon-curve"), {
+      height: function (w) { return clamp(w * 0.62, 190, 250); },
+      draw: function (svg, w, h) { drawCurve(svg, w, h, Number(input.value), S); }
+    });
+    function update() {
+      var n = Number(input.value);
+      out.textContent = String(n);
+      redrawStrip(); redrawCurve();
+      readouts[1].textContent = S.now.replace("{n}", String(n)).replace("{g}", sgn(EMAX[n], 2));
+    }
+    input.addEventListener("input", update);
+    fig.querySelector("button").addEventListener("click", function () { seed = (seed * 1103515245 + 12345) | 0; update(); });
+    fig.__update = update;
+  });
+
+  /* ---------- start: #zh… / #en… link, then the saved choice ---------- */
+  var hsh = (location.hash || "").slice(1), saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  var start = "en";  /* English only for now */
+  try { localStorage.removeItem(KEY); } catch (e) {}
+  setLang(start, false);
+  document.querySelectorAll("[data-bon]").forEach(function (fig) { fig.__update(); });
+  if (hsh && document.getElementById(hsh)) document.getElementById(hsh).scrollIntoView();
+})();
+</script>
+
+</body>
+</html>
