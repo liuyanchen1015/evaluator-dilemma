@@ -12,8 +12,14 @@ PAGES = [(HOME / "evaluator_dilemma/blog_site", ["python3", "build.py"], "out/in
          (HOME / "rsi-audit", ["python3", "site/build.py"], "site/index.html", HERE / "registry/index.html",
           "Audit cards for self-improving AI systems: which evaluators measured each reported gain, and whether the gain holds up.")]
 
-def wrap(fragment: str, desc: str) -> str:
+SITE = "https://liuyanchen1015.github.io/evaluator-dilemma/"
+
+
+def wrap(fragment: str, desc: str, depth: int) -> str:
     fragment = re.sub(r'<meta name="claude:[^"]*"[^>]*>\n?', "", fragment)   # claude.ai-only hint
+    # links between the two pages become relative, so the same files work on any host (GitHub Pages, CSAIL, ...)
+    up = "../" * depth
+    fragment = fragment.replace(SITE + "registry/", up + "registry/").replace(f'href="{SITE}"', f'href="{up or "./"}"').replace(f"href='{SITE}'", f"href='{up or './'}'")
     m = re.search(r"<title>.*?</title>\n?", fragment, flags=re.S)
     title = m.group(0) if m else ""
     body = fragment.replace(title, "", 1) if title else fragment
@@ -24,5 +30,5 @@ def wrap(fragment: str, desc: str) -> str:
 for src, cmd, frag, out, desc in PAGES:
     subprocess.run(cmd, cwd=src, check=True, stdout=subprocess.DEVNULL)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(wrap((src / frag).read_text(), desc))
+    out.write_text(wrap((src / frag).read_text(), desc, len(out.relative_to(HERE).parts) - 1))
     print("wrote", out.relative_to(HERE), f"{out.stat().st_size // 1024} KB")
