@@ -8,7 +8,7 @@ import re, subprocess
 from pathlib import Path
 HOME = Path.home(); HERE = Path(__file__).resolve().parent
 PAGES = [(HOME / "evaluator_dilemma/blog_site", ["python3", "build.py"], "out/index.html", HERE / "index.html",
-          "Does recursive self-improvement really improve? An essay on the evaluator dilemma, with audits of published self-improving AI systems."),
+          "Does recursive self-improvement really improve? A blog post on the evaluator dilemma, with audits of published self-improving AI systems."),
          (HOME / "rsi-audit", ["python3", "site/build.py"], "site/index.html", HERE / "registry/index.html",
           "Audit cards for self-improving AI systems: which evaluators measured each reported gain, and whether the gain holds up.")]
 
@@ -16,7 +16,7 @@ SITE = "https://liuyanchen1015.github.io/evaluator-dilemma/"
 # link previews: wide cards for X/Slack/LinkedIn/iMessage (absolute URLs on GitHub Pages, so every host's copy points
 # to the same image), and a square thumbnail for WeChat, which uses the first image in the page body.
 def share_tags(kind: str, title: str, desc: str, up: str) -> str:
-    img = SITE + f"share/{kind}.png"
+    img = SITE + f"share/{kind}.png?v=2"  # bump v when the image changes, so link-preview caches refetch
     return (f'<meta property="og:type" content="{"article" if kind == "blog" else "website"}">\n'
             f'<meta property="og:title" content="{title}">\n<meta property="og:description" content="{desc}">\n'
             f'<meta property="og:image" content="{img}">\n<meta property="og:image:width" content="1200">\n'
