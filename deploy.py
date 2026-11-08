@@ -2,7 +2,7 @@
 
 blog:     ~/evaluator_dilemma/blog_site  (python3 build.py  -> out/index.html)
 registry: ~/rsi-audit                    (python3 site/build.py -> site/index.html)
-Both builds emit an HTML fragment for claude.ai; this wraps each one for GitHub Pages.
+Both builds emit an HTML fragment for claude.ai; this wraps each one for GitHub Pages, then runs feed.py.
 """
 import re, subprocess
 from pathlib import Path
@@ -39,6 +39,8 @@ def wrap(fragment: str, desc: str, depth: int, kind: str) -> str:
     body = fragment.replace(title, "", 1) if title else fragment
     plain = re.sub(r"</?title>|\n", "", title)
     head_tags, wechat_img = share_tags(kind, plain, desc, up)
+    if kind == "blog":  # full-text Atom feed (feed.py); absolute, so every host's copy points to the one feed
+        head_tags += f'<link rel="alternate" type="application/atom+xml" title="The Evaluator Dilemma" href="{SITE}feed.xml">\n'
     return ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
             '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
             f'{title}<meta name="description" content="{desc}">\n<link rel="icon" href="{up}favicon.ico">\n{head_tags}</head>\n<body>\n{wechat_img}{body}\n</body>\n</html>\n')
@@ -49,3 +51,4 @@ for src, cmd, frag, out, desc in PAGES:
     kind = "registry" if out.parent.name == "registry" else "blog"
     out.write_text(wrap((src / frag).read_text(), desc, len(out.relative_to(HERE).parts) - 1, kind))
     print("wrote", out.relative_to(HERE), f"{out.stat().st_size // 1024} KB")
+subprocess.run(["python3", "feed.py"], cwd=HERE, check=True)
