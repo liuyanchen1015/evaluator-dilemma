@@ -11,6 +11,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SITE = "https://liuyanchen1015.github.io/evaluator-dilemma/"
 HOMEPAGE = "https://liuyanchen1015.github.io/"
+LICENSE = "https://creativecommons.org/licenses/by/4.0/"
+RIGHTS = "© 2026 Yanchen Liu. Licensed under CC BY 4.0."
 TITLE = "The Evaluator Dilemma: Does Recursive Self-Improvement Really Improve?"
 PUBLISHED = "2026-11-02T00:00:00-05:00"
 SUMMARY = ("Self-improving AI systems judge their own progress with an evaluator inside their loop. We audited eight "
@@ -82,14 +84,17 @@ def main() -> None:
 <id>{SITE}feed.xml</id>
 <updated>{updated}</updated>
 {author}
+<rights>{RIGHTS}</rights>
 <entry>
 <title>{html.escape(TITLE)}</title>
 <link rel="alternate" type="text/html" href="{SITE}"/>
+<link rel="license" href="{LICENSE}"/>
 <id>{SITE}</id>
 <published>{PUBLISHED}</published>
 <!-- content {digest} -->
 <updated>{updated}</updated>
 {author}
+<rights>{RIGHTS}</rights>
 <summary type="text">{html.escape(SUMMARY)}</summary>
 <content type="html">{html.escape(body, quote=False)}</content>
 </entry>
