@@ -53,6 +53,7 @@ def render() -> str:
         b = p.chromium.launch()
         pg = b.new_page(viewport={"width": 1440, "height": 1000}, device_scale_factor=2, color_scheme="light")
         pg.goto((HERE / "index.html").as_uri(), wait_until="networkidle"); pg.wait_for_timeout(2000)
+        pg.evaluate("document.fonts.ready.then(() => true)")  # same fonts every run, so the PNGs only change when a chart does
         pg.add_style_tag(content="figure figcaption, .bon-controls { display: none !important; }")
         figs = pg.query_selector_all("article.post figure")
         for i, f in enumerate(figs, 1):
