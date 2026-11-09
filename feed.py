@@ -10,7 +10,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SITE = "https://liuyanchen1015.github.io/evaluator-dilemma/"
-HOMEPAGE = "https://liuyanchen1015.github.io/"
+ORCID = "https://orcid.org/0000-0002-9194-7624"  # author uri: Rogue Scholar links DOIs to the ORCID record
 LICENSE = "https://creativecommons.org/licenses/by/4.0/"
 RIGHTS = "© 2026 Yanchen Liu. Licensed under CC BY 4.0."
 TITLE = "The Evaluator Dilemma: Does Recursive Self-Improvement Really Improve?"
@@ -74,7 +74,7 @@ def main() -> None:
     # keep <updated> unless the post's text changed, so readers and archives only see real revisions
     m = re.search(r"<!-- content ([0-9a-f]+) -->\s*<updated>([^<]+)</updated>", old)
     updated = m.group(2) if m and m.group(1) == digest else datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    author = f"<author>\n  <name>Yanchen Liu</name>\n  <uri>{HOMEPAGE}</uri>\n</author>"
+    author = f"<author>\n  <name>Yanchen Liu</name>\n  <uri>{ORCID}</uri>\n</author>"
     feed.write_text(f"""<?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">
 <title>The Evaluator Dilemma</title>

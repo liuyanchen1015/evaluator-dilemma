@@ -8,7 +8,7 @@
 <updated>2026-11-08T05:58:11Z</updated>
 <author>
   <name>Yanchen Liu</name>
-  <uri>https://liuyanchen1015.github.io/</uri>
+  <uri>https://orcid.org/0000-0002-9194-7624</uri>
 </author>
 <rights>© 2026 Yanchen Liu. Licensed under CC BY 4.0.</rights>
 <entry>
@@ -21,7 +21,7 @@
 <updated>2026-11-08T05:58:11Z</updated>
 <author>
   <name>Yanchen Liu</name>
-  <uri>https://liuyanchen1015.github.io/</uri>
+  <uri>https://orcid.org/0000-0002-9194-7624</uri>
 </author>
 <rights>© 2026 Yanchen Liu. Licensed under CC BY 4.0.</rights>
 <summary type="text">Self-improving AI systems judge their own progress with an evaluator inside their loop. We audited eight published systems; in none of them did the loop&#x27;s own evaluator give good evidence for the reported gain.</summary>
