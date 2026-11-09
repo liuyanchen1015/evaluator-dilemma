@@ -1,7 +1,7 @@
 """Rebuild the two public pages from their sources and write them as complete HTML documents.
 
 blog:     ~/evaluator_dilemma/blog_site  (python3 build.py  -> out/index.html)
-registry: ~/rsi-audit                    (python3 site/build.py -> site/index.html)
+registry: ~/verifiedrsi-registry (repo VerifiedRSI/registry; python3 site/build.py -> site/index.html)
 Both builds emit an HTML fragment for claude.ai; this wraps each one for GitHub Pages, then runs feed.py.
 """
 import re, subprocess
@@ -9,7 +9,7 @@ from pathlib import Path
 HOME = Path.home(); HERE = Path(__file__).resolve().parent
 PAGES = [(HOME / "evaluator_dilemma/blog_site", ["python3", "build.py"], "out/index.html", HERE / "index.html",
           "Does recursive self-improvement really improve? A blog post on the evaluator dilemma, with audits of published self-improving AI systems."),
-         (HOME / "rsi-audit", ["python3", "site/build.py"], "site/index.html", HERE / "registry/index.html",
+         (HOME / "verifiedrsi-registry", ["python3", "site/build.py"], "site/index.html", HERE / "registry/index.html",
           "Audit cards for self-improving AI systems: which evaluators measured each reported gain, and whether the gain holds up.")]
 
 SITE = "https://liuyanchen1015.github.io/evaluator-dilemma/"
